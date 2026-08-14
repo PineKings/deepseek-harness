@@ -70,7 +70,6 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
   const [expanded, setExpanded] = useState<PluginInventoryEntry['entryId'] | null>(null)
   const [state, setState] = useState<ViewState>({ status: 'loading' })
   const [busy, setBusy] = useState<PluginInventoryEntry['entryId'] | null>(null)
-  const [systemOpen, setSystemOpen] = useState(true)
 
   useEffect(() => {
     let current = true
@@ -98,11 +97,9 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
       : [],
     [normalizedQuery, state],
   )
-  // Disabled plugins sit in the main list with an enable toggle so they can be
-  // re-enabled; enabled plugins are grouped into a collapsible system section
-  // (a user-added enabled plugin still carries a disable toggle).
-  const userEntries = filteredEntries.filter(entry => !entry.enabled)
-  const systemEntries = filteredEntries.filter(entry => entry.enabled)
+  // One flat list carries every plugin: each shows its real state with an
+  // enable or disable button, while a required plugin shows only the required
+  // note (it cannot be toggled).
 
   useEffect(() => {
     if (expanded !== null && !filteredEntries.some(entry => entry.entryId === expanded)) {
@@ -230,30 +227,10 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
           {state.snapshot.entries.length > 0 && filteredEntries.length === 0
             ? <p className={css.status}>{t('emptySearch')}</p>
             : null}
-          {userEntries.length > 0 ? (
+          {filteredEntries.length > 0 ? (
             <ul className={css.cards}>
-              {userEntries.map(card)}
+              {filteredEntries.map(card)}
             </ul>
-          ) : null}
-          {systemEntries.length > 0 ? (
-            <section className={css.systemSection} aria-labelledby={`${catalogId}-system-heading`}>
-              <button
-                className={css.systemHeading}
-                type="button"
-                id={`${catalogId}-system-heading`}
-                aria-expanded={systemOpen}
-                onClick={() => { setSystemOpen(current => !current) }}
-              >
-                <span>{t('systemPlugins')}</span>
-                <span className={css.systemCount}>{systemEntries.length}</span>
-                <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
-              </button>
-              {systemOpen ? (
-                <ul className={css.cards}>
-                  {systemEntries.map(card)}
-                </ul>
-              ) : null}
-            </section>
           ) : null}
         </div>
       ) : null}

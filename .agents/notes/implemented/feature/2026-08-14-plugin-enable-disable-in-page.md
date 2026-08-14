@@ -34,19 +34,22 @@ patch's `applyEntryPatches` target lookup.
 
 The Web plugin-list tab (`ui-settings-plugin-inventory`) adds an enable/disable
 button to each expanded card, wired to the Remote, re-listing after the toggle.
-The list is grouped: toggleable plugins carry the button in the main list, while
-the required system plugins sit in a separate collapsible "system plugins"
-section with no controls.
+The tab renders one flat list of every entry: each card shows the real current
+state, a toggleable plugin carries an enable or disable button (so a
+bundle-default disabled plugin can be re-enabled), and a required plugin shows
+only a read-only note.
 
-**Guard:** every entry carries a `protected` flag. Disabling a plugin that
-another plugin injects breaks the dependent, and enabling one whose service is
-unavailable fails the boot (both surfaced as `dsh-tool-ralph: pending (waiting
-for service: workflowEngine)` after a bad toggle). So `setEnabled` refuses to
-**disable** a required plugin, and after **enabling** a plugin it verifies the
-fiber became active (reverting a dependency-missing enable). The plugin-list tab
-groups by current state: disabled plugins sit in the main list with an enable
-button, while enabled plugins sit in a collapsible system section (a user-added
-enabled plugin keeps a disable toggle, a required one shows none).
+**Guard:** every entry carries a `protected` flag. The guard is default-open:
+only the small `REQUIRED_PLUGINS` set in `src/required.ts` (the entry tree, the
+Remote RPC spine, the session and agent spines) is protected. Disabling a
+plugin that another plugin injects breaks the dependent, and enabling one whose
+service is unavailable fails the boot (both surfaced as
+`dsh-tool-ralph: pending (waiting for service: workflowEngine)` after a bad
+toggle). So `setEnabled` refuses to **disable** a required plugin, and after
+**enabling** a plugin it verifies the fiber became active (reverting a
+dependency-missing enable). The plugin-list tab renders one flat list: a
+toggleable plugin carries an enable or disable button from its real state,
+while a required plugin shows only a read-only note.
 
 ## Persistence caveat
 

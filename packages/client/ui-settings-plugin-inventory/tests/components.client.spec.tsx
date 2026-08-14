@@ -78,6 +78,35 @@ describe('PluginInventorySettingsTab', () => {
     expect(screen.queryByText(en.unobserved)).toBeNull()
   })
 
+  it('renders every plugin in one flat list, toggling by state and guarding required plugins', async () => {
+    const grouped = {
+      entries: [
+        { entryId: 'recog', moduleName: '@deepseek-ai/dsh-image-recognition', enabled: true, protected: false, fiberPhase: 'active' },
+        { entryId: 'recog-http', moduleName: '@deepseek-ai/dsh-image-recognition-http', enabled: false, protected: false, fiberPhase: null },
+        { entryId: 'hmr', moduleName: '@deepseek-ai/cordis-plugin-hmr', enabled: true, protected: true, fiberPhase: 'active' },
+      ],
+    } as unknown as Snapshot
+    render(<PluginInventorySettingsTab {...props(async () => grouped)} />)
+
+    // No separate system section: all three entries share one flat list.
+    expect(screen.queryByText('System plugins')).toBeNull()
+    expect((await screen.findByRole('searchbox', { name: en.search })).getAttribute('aria-label')).toBeTruthy()
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+
+    // A toggleable enabled plugin carries a disable button.
+    fireEvent.click(screen.getByRole('button', { name: 'image-recognition, Mounted, Enabled' }))
+    expect(screen.getByRole('button', { name: en.disable })).toBeTruthy()
+
+    // A toggleable disabled plugin carries an enable button.
+    fireEvent.click(screen.getByRole('button', { name: 'image-recognition-http, Disabled' }))
+    expect(screen.getByRole('button', { name: en.enable })).toBeTruthy()
+
+    // A required plugin shows the required note, never a toggle.
+    fireEvent.click(screen.getByRole('button', { name: 'hmr, Mounted, Enabled' }))
+    expect(screen.getByText(en.required)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: en.disable })).toBeNull()
+  })
+
   it('filters by module name or Loader entry id', async () => {
     render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT)} />)
     const search = await screen.findByRole('searchbox', { name: en.search })

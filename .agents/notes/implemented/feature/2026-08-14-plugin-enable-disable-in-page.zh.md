@@ -26,15 +26,17 @@ Web UI 的插件列表是只读的：它展示 Loader 的条目和生命周期�
 （`include:<rowId>`）；两者不同，只有裸 id 能命中 patch 的 `applyEntryPatches` 目标查找。
 
 Web 插件列表 tab（`ui-settings-plugin-inventory`）在每张展开卡片的详情区加启用/停用按钮，
-绑定该 Remote，切换后重新拉取列表。列表分组：可切换插件在主列表带按钮，必需的系统插件
-放在一个可折叠的"系统插件"区，无任何开关。
+绑定该 Remote，切换后重新拉取列表。该 tab 渲染单一扁平列表，包含所有条目：每张卡片显示真实
+当前状态，可切换插件带"启用"或"停用"按钮（所以 bundle 默认禁用的插件也能重新启用），
+必需插件只显示只读说明。
 
-**门卫：** 每条条目带 `protected` 标记。停用一个被其他插件注入的插件会破坏依赖者，
-启用一个服务不可用的插件会导致启动失败（坏切换后都会表现为
-`dsh-tool-ralph: pending (waiting for service: workflowEngine)`）。所以 `setEnabled`
-拒绝**停用**必需插件；**启用**后校验 fiber 变为 active（依赖缺失的启用会回滚）。
-插件列表 tab 按当前状态分组：已停用插件在主列表带"启用"按钮，已启用插件放在可折叠的
-"系统插件"区（用户自加的已启用插件保留"停用"按钮，必需插件无任何开关）。
+**门卫：** 每条条目带 `protected` 标记。守卫默认开放：只有 `src/required.ts` 中
+`REQUIRED_PLUGINS` 这个小型集合（入口树、Remote RPC 主干、session 与 agent 主干）受保护。
+停用一个被其他插件注入的插件会破坏依赖者，启用一个服务不可用的插件会导致启动失败
+（坏切换后都会表现为 `dsh-tool-ralph: pending (waiting for service: workflowEngine)`）。
+所以 `setEnabled` 拒绝**停用**必需插件；**启用**后校验 fiber 变为 active（依赖缺失的
+启用会回滚）。插件列表 tab 渲染单一扁平列表：可切换插件按真实状态带"启用"或"停用"按钮，
+必需插件只显示只读说明。
 
 ## 持久化注意
 
