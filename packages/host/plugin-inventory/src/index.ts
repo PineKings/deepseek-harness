@@ -2,9 +2,11 @@
 
 import type { Context, FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
+import { fileURLToPath } from 'node:url'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
+import { persistPluginDisabled } from './persist.ts'
 import type {
   PluginEntryId,
   PluginFiberPhase,
@@ -66,6 +68,31 @@ export class PluginInventoryGateway extends TypertRemoteService {
       })
     }
     return { entries }
+  }
+
+  /**
+   * Toggle one plugin entry on or off. Applies the change live through the
+   * Loader (disposing or re-starting the plugin's fiber) and persists an
+   * explicit `disabled` override into the profile's user patch layer so the
+   * choice survives a restart. A plugin enabled by a bundle patch must carry
+   * the `disabled: false` override too, or the bundle's default would win on
+   * the next reload.
+   * @param entryId - the loader tree entry id (as `list` reports it).
+   * @param enabled - the desired effective state.
+   * @returns a confirmation; the caller re-lists to observe the new phase.
+   */
+  @Remote('setEnabled')
+  async setEnabled(entryId: PluginEntryId, enabled: boolean): Promise<{ ok: true }> {
+    const entry = this.ctx.loader.resolve(entryId)
+    if (entry === undefined) {
+      throw new Error(`plugin entry ${String(entryId)} not found`)
+    }
+    const rowId = entry.options.id
+    await this.ctx.loader.update(entryId, { disabled: !enabled })
+    if (this.ctx.baseUrl !== undefined) {
+      persistPluginDisabled(fileURLToPath(this.ctx.baseUrl), rowId, !enabled)
+    }
+    return { ok: true }
   }
 }
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
-import PluginInventoryGateway from '../src/index.ts'
+import PluginInventoryGateway, { type PluginEntryId } from '../src/index.ts'
 
 const contexts: Context[] = []
 
@@ -39,7 +39,22 @@ describe('PluginInventoryGateway', () => {
     })
     expect(remoteMethods(inventory)).toEqual([
       { method: 'list', invocation: { kind: 'direct' } },
+      { method: 'setEnabled', invocation: { kind: 'direct' } },
     ])
+  })
+
+  it('setEnabled toggles the Loader entry live', async () => {
+    const { ctx, inventory } = await harness()
+    const id = await ctx.loader.create({ name: 'cordis:active' }) as PluginEntryId
+    await inventory.setEnabled(id, false)
+    expect(inventory.list().entries.find(entry => entry.entryId === id)).toEqual({
+      entryId: id,
+      moduleName: 'cordis:active',
+      enabled: false,
+      fiberPhase: null,
+    })
+    await inventory.setEnabled(id, true)
+    expect(inventory.list().entries.find(entry => entry.entryId === id)?.enabled).toBe(true)
   })
 
   it('projects current non-group Loader entries without a second cache', async () => {
