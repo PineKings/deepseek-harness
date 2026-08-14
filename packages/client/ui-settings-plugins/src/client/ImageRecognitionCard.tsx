@@ -56,6 +56,18 @@ export function ImageRecognitionCard(props: ImageRecognitionCardProps) {
         onEdit={(text) => { props.edit('baseURL', text) }}
         onReset={() => { props.resetField('baseURL') }}
       />
+      <ValueField
+        id="plugin-config-image-recognition-model"
+        label={t('imageRecognitionModel')}
+        hint={t('imageRecognitionModelHint')}
+        overriddenLabel={t('overridden')}
+        resetLabel={t('reset')}
+        invalidLabel={t('invalidNumber')}
+        disabled={disabled}
+        {...state.model}
+        onEdit={(text) => { props.edit('model', text) }}
+        onReset={() => { props.resetField('model') }}
+      />
     </PluginCard>
   )
 }

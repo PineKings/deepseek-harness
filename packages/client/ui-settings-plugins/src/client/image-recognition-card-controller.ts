@@ -34,6 +34,8 @@ export interface ImageRecognitionSettings {
   apiKeyEnv?: string
   /** Provider endpoint; blank inherits the provider default. */
   baseURL?: string
+  /** Vision model name; blank inherits the provider default. */
+  model?: string
 }
 
 /** What the credentials domain last reported, and for which reference. */
@@ -50,6 +52,8 @@ interface CredentialState {
 export interface ImageRecognitionCardState extends CardShell {
   /** Provider endpoint. */
   baseURL: CardFieldState
+  /** Vision model name. */
+  model: CardFieldState
   /** The staged credential, which starts blank on every load. */
   apiKey: CardFieldState
   /** Whether the Host reports a credential configured for the referenced key. */
@@ -82,7 +86,7 @@ export class ImageRecognitionCardController {
   ) {
     this.form = new CardForm(
       scope,
-      [textField('baseURL')],
+      [textField('baseURL'), textField('model')],
       [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }],
     )
     this.store = this.form.bind(() => this.projection())
@@ -94,6 +98,7 @@ export class ImageRecognitionCardController {
     return {
       ...this.form.shell(),
       baseURL: this.form.field('baseURL'),
+      model: this.form.field('model'),
       apiKey: this.form.field(API_KEY_FIELD),
       apiKeyConfigured: this.credential.configured,
       apiKeyWritable: this.credential.writable,

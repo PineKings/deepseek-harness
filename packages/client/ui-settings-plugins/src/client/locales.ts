@@ -14,6 +14,7 @@ export type PluginsSettingsLocaleKey =
   | 'imageRecognitionTitle' | 'imageRecognitionDescription'
   | 'imageRecognitionApiKey' | 'imageRecognitionApiKeyHint' | 'imageRecognitionApiKeySet' | 'imageRecognitionApiKeyUnset'
   | 'imageRecognitionBaseUrl' | 'imageRecognitionBaseUrlHint'
+  | 'imageRecognitionModel' | 'imageRecognitionModelHint'
 
 /** English copy. */
 export const en: Record<PluginsSettingsLocaleKey, string> = {
@@ -62,6 +63,8 @@ export const en: Record<PluginsSettingsLocaleKey, string> = {
   imageRecognitionApiKeyUnset: 'No key is configured; recognition is unavailable until one is.',
   imageRecognitionBaseUrl: 'Endpoint',
   imageRecognitionBaseUrlHint: 'Leave blank to use the provider default.',
+  imageRecognitionModel: 'Model',
+  imageRecognitionModelHint: 'Vision model name; leave blank to use the provider default.',
 }
 
 /** Simplified Chinese copy. */
@@ -111,4 +114,6 @@ export const zh: Record<PluginsSettingsLocaleKey, string> = {
   imageRecognitionApiKeyUnset: '未配置密钥；配置之前图像识别不可用。',
   imageRecognitionBaseUrl: '接口地址',
   imageRecognitionBaseUrlHint: '留空则使用提供方默认地址。',
+  imageRecognitionModel: '模型',
+  imageRecognitionModelHint: '视觉模型名称；留空则使用提供方默认。',
 }
