@@ -12,6 +12,8 @@ import css from './PluginInventorySettingsTab.module.css'
 export interface PluginInventorySettingsTabInjected {
   /** Read a current Host inventory snapshot. */
   list: () => Promise<PluginInventorySnapshot>
+  /** Toggle one plugin entry on or off; persists across a restart. */
+  setEnabled: (entryId: PluginInventoryEntry['entryId'], enabled: boolean) => Promise<void>
 }
 
 type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
@@ -60,13 +62,14 @@ function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean 
     .some(value => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
-/** Render the read-only current Loader inventory. */
-export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsTabProps): ReactNode {
+/** Render the current Loader inventory with per-plugin enable/disable. */
+export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInventorySettingsTabProps): ReactNode {
   const catalogId = useId()
   const [request, setRequest] = useState(0)
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState<PluginInventoryEntry['entryId'] | null>(null)
   const [state, setState] = useState<ViewState>({ status: 'loading' })
+  const [busy, setBusy] = useState<PluginInventoryEntry['entryId'] | null>(null)
 
   useEffect(() => {
     let current = true
@@ -76,6 +79,16 @@ export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsT
     )
     return () => { current = false }
   }, [list, request])
+
+  /** Toggle one entry then re-read the inventory. */
+  const toggle = (entryId: PluginInventoryEntry['entryId'], enabled: boolean): void => {
+    if (busy !== null) return
+    setBusy(entryId)
+    void setEnabled(entryId, enabled).then(
+      () => setRequest(value => value + 1),
+      () => { /* the next list reflects the unchanged state */ },
+    ).finally(() => setBusy(null))
+  }
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const filteredEntries = useMemo(
@@ -183,6 +196,15 @@ export function PluginInventorySettingsTab({ list, t }: PluginInventorySettingsT
                             </div>
                           ) : null}
                         </dl>
+                        <button
+                          className={css.toggle}
+                          type="button"
+                          disabled={busy === entry.entryId}
+                          aria-busy={busy === entry.entryId || undefined}
+                          onClick={() => { toggle(entry.entryId, !entry.enabled) }}
+                        >
+                          {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
+                        </button>
                       </div>
                     ) : null}
                   </li>
