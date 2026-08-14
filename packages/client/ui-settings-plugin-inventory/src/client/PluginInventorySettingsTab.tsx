@@ -22,7 +22,7 @@ export interface PluginInventorySettingsTabInjected {
   /** List the offline-installable optional bundles. */
   availableBundles: () => Promise<AvailableBundlesSnapshot>
   /** Install a bundle or registry plugin; the host persists the change. */
-  install: (spec: InstallSpec) => Promise<InstallResult>
+  installPlugin: (spec: InstallSpec) => Promise<InstallResult>
   /** Un-compose an offline optional bundle. */
   uninstall: (name: string) => Promise<InstallResult>
 }
@@ -80,7 +80,7 @@ type BundleState =
 
 /** Render the current Loader inventory with per-plugin enable/disable and install. */
 export function PluginInventorySettingsTab({
-  list, setEnabled, availableBundles, install, uninstall, t,
+  list, setEnabled, availableBundles, installPlugin, uninstall, t,
 }: PluginInventorySettingsTabProps): ReactNode {
   const catalogId = useId()
   const [request, setRequest] = useState(0)
@@ -126,7 +126,7 @@ export function PluginInventorySettingsTab({
     setInstallBusy(name)
     setInstallNote(null)
     const action = mode === 'install'
-      ? install({ type: 'bundle', name })
+      ? installPlugin({ type: 'bundle', name })
       : uninstall(name)
     void action.then(
       () => {

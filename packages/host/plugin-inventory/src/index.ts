@@ -138,8 +138,8 @@ export class PluginInventoryGateway extends TypertRemoteService {
    * @param spec - the bundle name or registry package spec to install.
    * @returns a confirmation; `restartRequired` tells the caller to restart.
    */
-  @Remote('install')
-  install(spec: InstallSpec): InstallResult {
+  @Remote('installPlugin')
+  installPlugin(spec: InstallSpec): InstallResult {
     const profileDir = this.profileDir()
     const anchor = this.ctx.get('dshInstallAnchor') as string | undefined
     if (anchor === undefined) {

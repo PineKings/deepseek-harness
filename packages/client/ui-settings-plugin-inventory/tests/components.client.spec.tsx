@@ -16,14 +16,14 @@ const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventor
 function props(
   list: PluginInventorySettingsTabInjected['list'],
   bundles: PluginInventorySettingsTabInjected['availableBundles'] = async () => ({ available: [] }),
-  install: PluginInventorySettingsTabInjected['install'] = async () => ({ ok: true as const, restartRequired: true }),
+  installPlugin: PluginInventorySettingsTabInjected['installPlugin'] = async () => ({ ok: true as const, restartRequired: true }),
   uninstall: PluginInventorySettingsTabInjected['uninstall'] = async () => ({ ok: true as const, restartRequired: true }),
 ): PluginInventorySettingsTabProps {
   return {
     t,
     list,
     availableBundles: bundles,
-    install,
+    installPlugin,
     uninstall,
   } as PluginInventorySettingsTabProps
 }
@@ -163,7 +163,7 @@ describe('PluginInventorySettingsTab', () => {
   })
 
   it('renders the installable bundles with install and uninstall actions', async () => {
-    const install = vi.fn<PluginInventorySettingsTabInjected['install']>(async () => ({ ok: true, restartRequired: true }))
+    const installPlugin = vi.fn<PluginInventorySettingsTabInjected['installPlugin']>(async () => ({ ok: true, restartRequired: true }))
     const uninstall = vi.fn<PluginInventorySettingsTabInjected['uninstall']>(async () => ({ ok: true, restartRequired: true }))
     const bundles: PluginInventorySettingsTabInjected['availableBundles'] = async () => ({
       available: [
@@ -171,7 +171,7 @@ describe('PluginInventorySettingsTab', () => {
         { name: '@deepseek-ai/dsh-installed-bundle', installed: true },
       ],
     })
-    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, bundles, install, uninstall)} />)
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, bundles, installPlugin, uninstall)} />)
 
     expect(await screen.findByText(en.available)).toBeTruthy()
     expect(screen.getByText('@deepseek-ai/dsh-new-bundle')).toBeTruthy()
@@ -179,7 +179,7 @@ describe('PluginInventorySettingsTab', () => {
 
     // Install a not-installed bundle.
     fireEvent.click(screen.getByRole('button', { name: en.install }))
-    expect(install).toHaveBeenCalledWith({ type: 'bundle', name: '@deepseek-ai/dsh-new-bundle' })
+    expect(installPlugin).toHaveBeenCalledWith({ type: 'bundle', name: '@deepseek-ai/dsh-new-bundle' })
     expect(await screen.findByText(en.restartRequired)).toBeTruthy()
 
     // Uninstall an installed bundle.

@@ -47,10 +47,10 @@ export function apply(ctx: ClientContext): void {
     }
     return result.value
   }
-  const install: PluginInventorySettingsTabInjected['install'] = async (spec) => {
-    const result = await ctx.remote.pluginInventory.install(spec)
+  const installPlugin: PluginInventorySettingsTabInjected['installPlugin'] = async (spec) => {
+    const result = await ctx.remote.pluginInventory.installPlugin(spec)
     if (!result.ok) {
-      throw new Error(`pluginInventory.install failed: ${result.error.code}: ${result.error.message}`)
+      throw new Error(`pluginInventory.installPlugin failed: ${result.error.code}: ${result.error.message}`)
     }
     return result.value
   }
@@ -62,7 +62,7 @@ export function apply(ctx: ClientContext): void {
     return result.value
   }
   const injected = (): PluginInventorySettingsTabInjected => ({
-    list, setEnabled, availableBundles, install, uninstall,
+    list, setEnabled, availableBundles, installPlugin, uninstall,
   })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({

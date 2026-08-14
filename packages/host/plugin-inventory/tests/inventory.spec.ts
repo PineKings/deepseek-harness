@@ -49,7 +49,7 @@ describe('PluginInventoryGateway', () => {
       { method: 'list', invocation: { kind: 'direct' } },
       { method: 'setEnabled', invocation: { kind: 'direct' } },
       { method: 'availableBundles', invocation: { kind: 'direct' } },
-      { method: 'install', invocation: { kind: 'direct' } },
+      { method: 'installPlugin', invocation: { kind: 'direct' } },
       { method: 'uninstall', invocation: { kind: 'direct' } },
     ])
   })
@@ -151,9 +151,9 @@ describe('PluginInventoryGateway', () => {
     ctx.baseUrl = pathToFileURL(dir + '/').href
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
     try {
-      expect(() => inventory.install({ type: 'bundle', name: 'x' })).toThrow(/install anchor is unavailable/)
+      expect(() => inventory.installPlugin({ type: 'bundle', name: 'x' })).toThrow(/install anchor is unavailable/)
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
-      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/not permitted/)
+      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/not permitted/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -185,7 +185,7 @@ describe('PluginInventoryGateway', () => {
     writeFileSync(join(dir, 'node_modules', 'b', 'cordis.patch.yml'), '[]\n')
     ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
     try {
-      inventory.install({ type: 'bundle', name: 'b' })
+      inventory.installPlugin({ type: 'bundle', name: 'b' })
       expect(readProfileManifest('dsh', dir).dsh?.profile?.bundles).toEqual(['b'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -203,7 +203,7 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(inventory.install({ type: 'registry', spec: 'some-pkg' }).restartRequired).toBe(true)
+      expect(inventory.installPlugin({ type: 'registry', spec: 'some-pkg' }).restartRequired).toBe(true)
     } finally {
       delete process.env.DSH_PNPM
       rmSync(dir, { recursive: true, force: true })
@@ -260,7 +260,7 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/bundled pnpm is unavailable/)
+      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/bundled pnpm is unavailable/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -276,7 +276,7 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/failed to read profile manifest/)
+      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/failed to read profile manifest/)
     } finally {
       delete process.env.DSH_PNPM
       rmSync(dir, { recursive: true, force: true })
