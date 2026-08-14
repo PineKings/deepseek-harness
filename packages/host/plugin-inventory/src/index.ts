@@ -8,7 +8,7 @@ import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
 import { AVAILABLE_BUNDLES } from './bundles.ts'
-import { composeOfflineBundle, resolvePnpm, runPnpmInstall, uninstallBundle } from './install.ts'
+import { composeOfflineBundle, resolvePnpm, runPnpmInstallWithRegistries, uninstallBundle } from './install.ts'
 import { persistPluginDisabled } from './persist.ts'
 import { isRequiredPlugin } from './required.ts'
 import type {
@@ -23,7 +23,19 @@ import type {
 
 export type * from './types.ts'
 export { AVAILABLE_BUNDLES } from './bundles.ts'
+export { INSTALL_REGISTRIES } from './install.ts'
 export type { AvailableBundle, AvailableBundlesSnapshot, InstallResult, InstallSpec } from './types.ts'
+
+/**
+ * The profile's default bundle layers, composed by the shipped template and not
+ * offered as offline-installable or uninstallable (they are part of the
+ * deployment). See `packages/boot/app-boot/src/profile.ts` `PROFILE_TEMPLATES`.
+ */
+const DEFAULT_BUNDLES = new Set([
+  '@deepseek-ai/dsh-base',
+  '@deepseek-ai/dsh-web-app',
+  '@deepseek-ai/dsh-image-recognition-bundle',
+])
 
 /** Brand an existing Loader-tree entry id at the owning boundary. */
 function pluginEntryId(value: string): PluginEntryId {
@@ -123,6 +135,9 @@ export class PluginInventoryGateway extends TypertRemoteService {
   availableBundles(): AvailableBundlesSnapshot {
     const profileDir = this.profileDir()
     const installed = new Set(this.profileManifest(profileDir)?.dsh?.profile?.bundles ?? [])
+    // The catalog is empty until a new optional bundle ships, so the projection
+    // callback is unreachable in the current configuration.
+    /* v8 ignore next */
     return {
       available: AVAILABLE_BUNDLES.map(name => ({ name, installed: installed.has(name) })),
     }
@@ -139,15 +154,18 @@ export class PluginInventoryGateway extends TypertRemoteService {
    * @returns a confirmation; `restartRequired` tells the caller to restart.
    */
   @Remote('installPlugin')
-  installPlugin(spec: InstallSpec): InstallResult {
+  async installPlugin(spec: InstallSpec): Promise<InstallResult> {
     const profileDir = this.profileDir()
     const anchor = this.ctx.get('dshInstallAnchor') as string | undefined
     if (anchor === undefined) {
       throw new Error('dsh: install anchor is unavailable in this runtime')
     }
     if (spec.type === 'bundle') {
+      if (DEFAULT_BUNDLES.has(spec.name)) {
+        throw new Error(`dsh: bundle ${spec.name} is composed by default and is not installable`)
+      }
       composeOfflineBundle('dsh', profileDir, anchor, spec.name)
-      return { ok: true, restartRequired: true }
+      return { ok: true, restartRequired: !(await this.reload()) }
     }
     if (this.ctx.get('dshAllowPluginInstall') !== true) {
       throw new Error('dsh: plugin install is not permitted in this runtime')
@@ -160,7 +178,8 @@ export class PluginInventoryGateway extends TypertRemoteService {
     // this snapshot fallback is only reached in that same unreachable-to-succeed case.
     /* v8 ignore next */
     const before = this.profileManifest(profileDir) ?? { dependencies: {} }
-    runPnpmInstall({
+    // Try each registry until one succeeds; the official npm registry is last.
+    runPnpmInstallWithRegistries({
       binName: 'dsh',
       profileDir,
       installAnchor: anchor,
@@ -169,7 +188,7 @@ export class PluginInventoryGateway extends TypertRemoteService {
       spec: spec.spec,
       before,
     })
-    return { ok: true, restartRequired: true }
+    return { ok: true, restartRequired: !(await this.reload()) }
   }
 
   /**
@@ -178,9 +197,20 @@ export class PluginInventoryGateway extends TypertRemoteService {
    * @returns a confirmation; `restartRequired` tells the caller to restart.
    */
   @Remote('uninstall')
-  uninstall(name: string): InstallResult {
+  async uninstall(name: string): Promise<InstallResult> {
+    if (DEFAULT_BUNDLES.has(name)) {
+      throw new Error(`dsh: bundle ${name} is composed by default and cannot be uninstalled`)
+    }
     uninstallBundle('dsh', this.profileDir(), name)
-    return { ok: true, restartRequired: true }
+    return { ok: true, restartRequired: !(await this.reload()) }
+  }
+
+  /** Trigger a live tree recomposition; false when no reload handle is provided. */
+  private async reload(): Promise<boolean> {
+    const reload = this.ctx.get('dshReloadProfile') as (() => Promise<void>) | undefined
+    if (reload === undefined) return false
+    await reload()
+    return true
   }
 
   /** The profile directory the Loader anchors on (its `baseUrl`). */

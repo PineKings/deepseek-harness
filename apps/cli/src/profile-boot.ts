@@ -245,16 +245,40 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
   ])
   // Cloned for the same insert-aliasing reason as composeLive: the boot
   // application must not mutate the objects later reloads recompose from.
+  /**
+   * Recompose the running tree from the current profile manifest. Re-runs the
+   * composition (so a plugin just installed into `dsh.profile.bundles` joins the
+   * patch stack) and applies it to the root Include live, activating new plugins
+   * without a restart. Called by the plugin-inventory install path.
+   */
+  const reloadProfile = async (): Promise<void> => {
+    const ctx = app.current
+    if (ctx === undefined || ctx.fiber.state !== FiberState.ACTIVE || ctx.get('loader') === undefined) return
+    const fresh = composeProfile(options.profile, options.patchFiles)
+    const patches = structuredClone([
+      ...fresh.bundlePatches,
+      ...loadOptionalPatches(NAME, fresh.profile.patchPath) ?? [],
+      ...loadOptionalPatches(NAME, homePatchPath()) ?? [],
+      ...fresh.overlays,
+    ])
+    // resolve() throws for an unknown id; the include entry is always present.
+    const entry = ctx.loader.resolve('include')
+    const { patches: _ignored, ...includeConfig } = entry.options.config as Record<string, unknown> & { patches?: unknown }
+    await entry.update({ config: { ...includeConfig, patches } })
+  }
   const ctx = await boot(NAME, rootConfig, structuredClone(allPatches(composed)), (hostCtx) => {
     app.current = hostCtx
     // Before any config-tree entry mounts, so plugins resolve all launch-time
     // environment values from the same immutable provenance snapshot.
     hostCtx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, options.environment)
-    // Plugin install facts: the installation anchor for resolving bundles, and
-    // whether registry (pnpm) install is permitted. Both default off; the
-    // desktop boot opts into install via DSH_ALLOW_PLUGIN_INSTALL.
+    // Plugin install facts: the installation anchor for resolving bundles,
+    // whether registry (pnpm) install is permitted, and a live-recomposition
+    // handle that activates an installed plugin without a restart. Anchor and
+    // reload default off/absent; the desktop boot opts into install via
+    // DSH_ALLOW_PLUGIN_INSTALL.
     hostCtx.provide('dshInstallAnchor', INSTALL_ANCHOR)
     hostCtx.provide('dshAllowPluginInstall', process.env.DSH_ALLOW_PLUGIN_INSTALL === '1')
+    hostCtx.provide('dshReloadProfile', reloadProfile)
     // The command line and bounded exit request are launcher facts available
     // to every app plugin that injects the argument snapshot.
     provideCmdline(hostCtx, {

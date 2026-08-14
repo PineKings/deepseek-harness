@@ -1,9 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readProfileManifest } from '@deepseek-ai/dsh-app-boot'
-import { composeOfflineBundle, resolvePnpm, runPnpmInstall, uninstallBundle } from '../src/install.ts'
+import {
+  composeOfflineBundle, INSTALL_REGISTRIES, resolvePnpm, runPnpmInstall,
+  runPnpmInstallWithRegistries, uninstallBundle,
+} from '../src/install.ts'
 
 const dirs: string[] = []
 
@@ -32,6 +35,22 @@ function makeBundle(dir: string, name: string): void {
 function makeFakePnpm(dir: string, exitCode: number): string {
   const file = join(dir, `pnpm-${exitCode}.cjs`)
   writeFileSync(file, `process.exit(${exitCode})\n`)
+  return file
+}
+
+/**
+ * A fake pnpm that records its argv to `process.env.RECORD` and exits 1 when the
+ * `--registry` value matches `process.env.FAIL_REG`, else `process.env.EXIT`.
+ */
+function makeRecordingPnpm(dir: string): string {
+  const file = join(dir, 'recording.cjs')
+  writeFileSync(file, [
+    "const fs = require('fs')",
+    'const args = process.argv.slice(2)',
+    'fs.writeFileSync(process.env.RECORD, JSON.stringify(args))',
+    "const reg = args[args.indexOf('--registry') + 1]",
+    'process.exit(reg === process.env.FAIL_REG ? 1 : Number(process.env.EXIT ?? 0))',
+  ].join('\n'))
   return file
 }
 
@@ -82,6 +101,67 @@ describe('runPnpmInstall', () => {
       binName: 'dsh', profileDir: dir, installAnchor: join(dir, 'package.json'),
       nodeBin: process.execPath, pnpmCjs: pnpm, spec: 'example', before,
     }) }).toThrow(/pnpm install failed/)
+  })
+
+  it('passes --registry when a registry is given', () => {
+    const dir = makeProfile()
+    const record = join(dir, 'record.json')
+    const pnpm = makeRecordingPnpm(dir)
+    process.env.RECORD = record
+    process.env.EXIT = '0'
+    try {
+      runPnpmInstall({
+        binName: 'dsh', profileDir: dir, installAnchor: join(dir, 'package.json'),
+        nodeBin: process.execPath, pnpmCjs: pnpm, spec: 'x',
+        before: readProfileManifest('dsh', dir), registry: 'https://mirror.example',
+      })
+      const args = JSON.parse(readFileSync(record, 'utf8')) as string[]
+      expect(args).toContain('--registry')
+      expect(args).toContain('https://mirror.example')
+    } finally {
+      delete process.env.RECORD
+      delete process.env.EXIT
+    }
+  })
+})
+
+describe('runPnpmInstallWithRegistries', () => {
+  it('tries registries until one succeeds', () => {
+    const dir = makeProfile()
+    const record = join(dir, 'record.json')
+    const pnpm = makeRecordingPnpm(dir)
+    process.env.RECORD = record
+    process.env.EXIT = '0'
+    process.env.FAIL_REG = 'https://bad.example'
+    try {
+      runPnpmInstallWithRegistries({
+        binName: 'dsh', profileDir: dir, installAnchor: join(dir, 'package.json'),
+        nodeBin: process.execPath, pnpmCjs: pnpm, spec: 'x',
+        before: readProfileManifest('dsh', dir),
+      }, ['https://bad.example', 'https://good.example'])
+      const args = JSON.parse(readFileSync(record, 'utf8')) as string[]
+      expect(args).toContain('https://good.example')
+    } finally {
+      delete process.env.RECORD
+      delete process.env.EXIT
+      delete process.env.FAIL_REG
+    }
+  })
+
+  it('throws when every registry fails', () => {
+    const dir = makeProfile()
+    const pnpm = makeFakePnpm(dir, 1)
+    expect(() => { runPnpmInstallWithRegistries({
+      binName: 'dsh', profileDir: dir, installAnchor: join(dir, 'package.json'),
+      nodeBin: process.execPath, pnpmCjs: pnpm, spec: 'x',
+      before: readProfileManifest('dsh', dir),
+    }, ['https://a.example', 'https://b.example']) }).toThrow(/across all registries/)
+  })
+})
+
+describe('INSTALL_REGISTRIES', () => {
+  it('ends with the official npm registry as the fallback', () => {
+    expect(INSTALL_REGISTRIES[INSTALL_REGISTRIES.length - 1]).toBe('https://registry.npmjs.org')
   })
 })
 

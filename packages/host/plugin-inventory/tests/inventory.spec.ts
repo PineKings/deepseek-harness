@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { readProfileManifest } from '@deepseek-ai/dsh-app-boot'
@@ -126,20 +126,14 @@ describe('PluginInventoryGateway', () => {
     expect(inventory.list().entries.some(entry => entry.entryId === pendingId)).toBe(false)
   })
 
-  it('availableBundles reports installed state from the profile manifest', async () => {
+  it('availableBundles reports an empty offline catalog', async () => {
     const { ctx, inventory } = await harness()
     const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
     contexts.push(ctx)
     ctx.baseUrl = pathToFileURL(dir + '/').href
-    writeFileSync(join(dir, 'package.json'), JSON.stringify({
-      name: 'dsh-profile-test',
-      dsh: { profile: { bundles: ['@deepseek-ai/dsh-image-recognition-bundle'] } },
-    }))
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
     try {
-      const snapshot = inventory.availableBundles()
-      expect(snapshot.available).toEqual([
-        { name: '@deepseek-ai/dsh-image-recognition-bundle', installed: true },
-      ])
+      expect(inventory.availableBundles().available).toEqual([])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -151,25 +145,40 @@ describe('PluginInventoryGateway', () => {
     ctx.baseUrl = pathToFileURL(dir + '/').href
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
     try {
-      expect(() => inventory.installPlugin({ type: 'bundle', name: 'x' })).toThrow(/install anchor is unavailable/)
+      await expect(inventory.installPlugin({ type: 'bundle', name: 'x' })).rejects.toThrow(/install anchor is unavailable/)
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
-      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/not permitted/)
+      await expect(inventory.installPlugin({ type: 'registry', spec: 'x' })).rejects.toThrow(/not permitted/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
-  it('uninstall removes a bundle from the profile manifest', async () => {
+  it('refuses to install a default bundle', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+    try {
+      await expect(inventory.installPlugin({ type: 'bundle', name: '@deepseek-ai/dsh-image-recognition-bundle' }))
+        .rejects.toThrow(/not installable/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses to uninstall a default bundle and removes an optional one', async () => {
     const { ctx, inventory } = await harness()
     const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
     ctx.baseUrl = pathToFileURL(dir + '/').href
     writeFileSync(join(dir, 'package.json'), JSON.stringify({
       name: 'dsh-profile-test',
-      dsh: { profile: { bundles: ['@deepseek-ai/dsh-image-recognition-bundle'] } },
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-image-recognition-bundle', 'optional-bundle'] } },
     }))
     try {
-      expect(inventory.uninstall('@deepseek-ai/dsh-image-recognition-bundle').restartRequired).toBe(true)
-      expect(inventory.availableBundles().available[0]!.installed).toBe(false)
+      await expect(inventory.uninstall('@deepseek-ai/dsh-image-recognition-bundle')).rejects.toThrow(/cannot be uninstalled/)
+      expect((await inventory.uninstall('optional-bundle')).restartRequired).toBe(true)
+      expect(readProfileManifest('dsh', dir).dsh?.profile?.bundles).toEqual(['@deepseek-ai/dsh-image-recognition-bundle'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -185,7 +194,7 @@ describe('PluginInventoryGateway', () => {
     writeFileSync(join(dir, 'node_modules', 'b', 'cordis.patch.yml'), '[]\n')
     ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
     try {
-      inventory.installPlugin({ type: 'bundle', name: 'b' })
+      await inventory.installPlugin({ type: 'bundle', name: 'b' })
       expect(readProfileManifest('dsh', dir).dsh?.profile?.bundles).toEqual(['b'])
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -203,7 +212,7 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(inventory.installPlugin({ type: 'registry', spec: 'some-pkg' }).restartRequired).toBe(true)
+      expect((await inventory.installPlugin({ type: 'registry', spec: 'some-pkg' })).restartRequired).toBe(true)
     } finally {
       delete process.env.DSH_PNPM
       rmSync(dir, { recursive: true, force: true })
@@ -215,12 +224,12 @@ describe('PluginInventoryGateway', () => {
     expect(() => inventory.availableBundles()).toThrow(/profile directory/)
   })
 
-  it('treats a missing profile manifest as no installed bundles', async () => {
+  it('treats a missing profile manifest as an empty catalog', async () => {
     const { ctx, inventory } = await harness()
     const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
     ctx.baseUrl = pathToFileURL(dir + '/').href
     try {
-      expect(inventory.availableBundles().available[0]!.installed).toBe(false)
+      expect(inventory.availableBundles().available).toEqual([])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -260,7 +269,7 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/bundled pnpm is unavailable/)
+      await expect(inventory.installPlugin({ type: 'registry', spec: 'x' })).rejects.toThrow(/bundled pnpm is unavailable/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -276,9 +285,29 @@ describe('PluginInventoryGateway', () => {
     try {
       ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
       ctx.provide('dshAllowPluginInstall', true)
-      expect(() => inventory.installPlugin({ type: 'registry', spec: 'x' })).toThrow(/failed to read profile manifest/)
+      await expect(inventory.installPlugin({ type: 'registry', spec: 'x' })).rejects.toThrow(/failed to read profile manifest/)
     } finally {
       delete process.env.DSH_PNPM
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('triggers a live recompose when a reload handle is provided', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    mkdirSync(join(dir, 'node_modules', 'b'), { recursive: true })
+    writeFileSync(join(dir, 'node_modules', 'b', 'package.json'), JSON.stringify({ name: 'b', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+    writeFileSync(join(dir, 'node_modules', 'b', 'cordis.patch.yml'), '[]\n')
+    ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+    const reload = vi.fn(async () => {})
+    ctx.provide('dshReloadProfile', reload)
+    try {
+      const result = await inventory.installPlugin({ type: 'bundle', name: 'b' })
+      expect(result.restartRequired).toBe(false)
+      expect(reload).toHaveBeenCalledOnce()
+    } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })

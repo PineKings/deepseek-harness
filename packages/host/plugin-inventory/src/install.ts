@@ -22,6 +22,17 @@ import {
 } from '@deepseek-ai/dsh-app-boot'
 
 /**
+ * Registries to try, in order, for a registry plugin install. The install
+ * attempts each until one succeeds; the official npm registry is the final
+ * fallback, so a deployment reaches the package even when every mirror is
+ * down. Add mirrors here (code-editable) to route installs through them.
+ */
+export const INSTALL_REGISTRIES: readonly string[] = [
+  'https://registry.npmmirror.com',
+  'https://registry.npmjs.org',
+]
+
+/**
  * Compose an offline optional bundle into the profile's bundle layer list.
  * Validates that the bundle resolves from the installation anchor (so a bad
  * name fails loud instead of silently corrupting the manifest), then appends
@@ -71,6 +82,8 @@ export interface PnpmInstallOptions {
   readonly spec: string
   /** The profile manifest read before the install, for reconciliation. */
   readonly before: ProfileManifest
+  /** An npm registry to install from (`pnpm add --registry`); defaults to pnpm's configured one. */
+  readonly registry?: string
 }
 
 /**
@@ -80,12 +93,44 @@ export interface PnpmInstallOptions {
  * @param options - the run options.
  */
 export function runPnpmInstall(options: PnpmInstallOptions): void {
-  const { binName, profileDir, installAnchor, nodeBin, pnpmCjs, spec, before } = options
-  const result = spawn(nodeBin, [pnpmCjs, 'add', spec], profileDir)
+  const { binName, profileDir, installAnchor, nodeBin, pnpmCjs, spec, before, registry } = options
+  const args = registry === undefined
+    ? [pnpmCjs, 'add', spec]
+    : [pnpmCjs, 'add', spec, '--registry', registry]
+  const result = spawn(nodeBin, args, profileDir)
   if (result.exitCode !== 0) {
     throw new Error(`${binName}: pnpm install failed with exit code ${result.exitCode}`)
   }
   reconcileProfileBundles(binName, before, profileDir, installAnchor)
+}
+
+/**
+ * Run `pnpm add` trying each registry in {@link INSTALL_REGISTRIES} until one
+ * succeeds (the first success wins). The official registry is last, so a
+ * deployment falls back to it when every mirror is down; throws with the last
+ * error only when every registry fails.
+ * @param options - the run options (without a fixed `registry`).
+ * @param registries - the ordered registries to try (defaults to
+ * {@link INSTALL_REGISTRIES}).
+ */
+export function runPnpmInstallWithRegistries(
+  options: Omit<PnpmInstallOptions, 'registry'>,
+  registries: readonly string[] = INSTALL_REGISTRIES,
+): void {
+  let lastError: unknown
+  for (const registry of registries) {
+    try {
+      runPnpmInstall({ ...options, registry })
+      return
+    } catch (error) {
+      lastError = error
+    }
+  }
+  // The install path only throws Errors, so the non-Error formatting is defensive.
+  /* v8 ignore next */
+  throw new Error(
+    `${options.binName}: plugin install failed across all registries; last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  )
 }
 
 /** Spawn one synchronous child and return its exit code (0 on success). */

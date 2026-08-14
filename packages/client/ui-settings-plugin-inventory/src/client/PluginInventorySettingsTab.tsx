@@ -1,10 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import type {
-  AvailableBundlesSnapshot,
-  InstallResult,
-  InstallSpec,
-  PluginInventorySnapshot,
-} from '@deepseek-ai/dsh-api-remotes/client'
+import type { InstallResult, InstallSpec, PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   IconChevronDownOutline14,
   IconSearchOutline16,
@@ -19,12 +14,8 @@ export interface PluginInventorySettingsTabInjected {
   list: () => Promise<PluginInventorySnapshot>
   /** Toggle one plugin entry on or off; persists across a restart. */
   setEnabled: (entryId: PluginInventoryEntry['entryId'], enabled: boolean) => Promise<void>
-  /** List the offline-installable optional bundles. */
-  availableBundles: () => Promise<AvailableBundlesSnapshot>
-  /** Install a bundle or registry plugin; the host persists the change. */
+  /** Install a registry plugin by package name; the host persists the change. */
   installPlugin: (spec: InstallSpec) => Promise<InstallResult>
-  /** Un-compose an offline optional bundle. */
-  uninstall: (name: string) => Promise<InstallResult>
 }
 
 type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
@@ -73,14 +64,9 @@ function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean 
     .some(value => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
-type BundleState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly snapshot: AvailableBundlesSnapshot }
-  | { readonly status: 'error' }
-
 /** Render the current Loader inventory with per-plugin enable/disable and install. */
 export function PluginInventorySettingsTab({
-  list, setEnabled, availableBundles, installPlugin, uninstall, t,
+  list, setEnabled, installPlugin, t,
 }: PluginInventorySettingsTabProps): ReactNode {
   const catalogId = useId()
   const [request, setRequest] = useState(0)
@@ -88,8 +74,8 @@ export function PluginInventorySettingsTab({
   const [expanded, setExpanded] = useState<PluginInventoryEntry['entryId'] | null>(null)
   const [state, setState] = useState<ViewState>({ status: 'loading' })
   const [busy, setBusy] = useState<PluginInventoryEntry['entryId'] | null>(null)
-  const [bundles, setBundles] = useState<BundleState>({ status: 'loading' })
-  const [installBusy, setInstallBusy] = useState<string | null>(null)
+  const [spec, setSpec] = useState('')
+  const [installBusy, setInstallBusy] = useState(false)
   const [installNote, setInstallNote] = useState<{ kind: 'restart' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
@@ -101,15 +87,6 @@ export function PluginInventorySettingsTab({
     return () => { current = false }
   }, [list, request])
 
-  useEffect(() => {
-    let current = true
-    void Promise.resolve().then(() => availableBundles()).then(
-      (snapshot) => { if (current) setBundles({ status: 'ready', snapshot }) },
-      () => { if (current) setBundles({ status: 'error' }) },
-    )
-    return () => { current = false }
-  }, [availableBundles, request])
-
   /** Toggle one entry then re-read the inventory. */
   const toggle = (entryId: PluginInventoryEntry['entryId'], enabled: boolean): void => {
     if (busy !== null) return
@@ -120,21 +97,25 @@ export function PluginInventorySettingsTab({
     ).finally(() => { setBusy(null) })
   }
 
-  /** Install or uninstall an optional bundle, then re-read the catalog. */
-  const mutateBundle = (name: string, mode: 'install' | 'uninstall'): void => {
-    if (installBusy !== null) return
-    setInstallBusy(name)
+  /** Install a plugin by package name via the registry, then re-read. */
+  const installRegistry = (): void => {
+    const trimmed = spec.trim()
+    if (trimmed.length === 0 || installBusy) return
+    setInstallBusy(true)
     setInstallNote(null)
-    const action = mode === 'install'
-      ? installPlugin({ type: 'bundle', name })
-      : uninstall(name)
-    void action.then(
-      () => {
-        setInstallNote({ kind: 'restart', text: t('restartRequired') })
+    void installPlugin({ type: 'registry', spec: trimmed }).then(
+      (result) => {
+        // A live recompose activates the plugin immediately; only fall back to a
+        // restart notice when no reload handle exists.
+        setInstallNote({ kind: 'restart', text: t(result.restartRequired ? 'restartRequired' : 'installed') })
+        setSpec('')
         setRequest(value => value + 1)
       },
-      () => { setInstallNote({ kind: 'error', text: t('installFailed') }) },
-    ).finally(() => { setInstallBusy(null) })
+      (error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error)
+        setInstallNote({ kind: 'error', text: `${t('installFailed')}: ${detail}` })
+      },
+    ).finally(() => { setInstallBusy(false) })
   }
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -255,31 +236,31 @@ export function PluginInventorySettingsTab({
       ) : null}
       {state.status === 'ready' ? (
         <>
-          {bundles.status === 'ready' && bundles.snapshot.available.length > 0 ? (
-            <section className={css.install} aria-label={t('available')}>
-              <h3>{t('available')}</h3>
-              {installNote !== null
-                ? <p className={installNote.kind === 'error' ? css.installError : css.installRestart} role="status">{installNote.text}</p>
-                : null}
-              <ul className={css.installList}>
-                {bundles.snapshot.available.map(bundle => (
-                  <li key={bundle.name} className={css.installRow}>
-                    <span className={css.installName}>{bundle.name}</span>
-                    <button
-                      type="button"
-                      className={css.installAction}
-                      disabled={installBusy !== null}
-                      onClick={() => { mutateBundle(bundle.name, bundle.installed ? 'uninstall' : 'install') }}
-                    >
-                      {installBusy === bundle.name
-                        ? t('installing')
-                        : bundle.installed ? t('uninstall') : t('install')}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <section className={css.install} aria-label={t('installPlugin')}>
+            <h3>{t('installPlugin')}</h3>
+            <div className={css.installRow}>
+              <input
+                type="text"
+                className={css.installInput}
+                value={spec}
+                placeholder={t('installSpec')}
+                aria-label={t('installSpec')}
+                onChange={(event) => { setSpec(event.currentTarget.value) }}
+                onKeyDown={(event) => { if (event.key === 'Enter') installRegistry() }}
+              />
+              <button
+                type="button"
+                className={css.installAction}
+                disabled={installBusy || spec.trim().length === 0}
+                onClick={installRegistry}
+              >
+                {installBusy ? t('installing') : t('install')}
+              </button>
+            </div>
+            {installNote !== null
+              ? <p className={installNote.kind === 'error' ? css.installError : css.installRestart} role="status">{installNote.text}</p>
+              : null}
+          </section>
           <div className={css.catalog}>
             <label className={css.search}>
               <IconSearchOutline16 aria-hidden="true" />

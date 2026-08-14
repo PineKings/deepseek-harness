@@ -4,22 +4,24 @@ import { isRequiredPlugin, isUserToggleable } from '../src/required.ts'
 
 describe('isRequiredPlugin (blacklist/whitelist, default-open)', () => {
   it('marks the blacklist core as required', () => {
-    for (const name of ['@deepseek-ai/cordis-plugin-loader', '@deepseek-ai/dsh-session', 'cordis:required']) {
+    for (const name of ['@deepseek-ai/cordis-plugin-loader', '@deepseek-ai/dsh-session', 'cordis:required', 'cordis:include']) {
       expect(isRequiredPlugin(name)).toBe(true)
       expect(isUserToggleable(name)).toBe(false)
     }
   })
 
-  it('defaults everything else to toggleable', () => {
-    for (const name of ['@deepseek-ai/dsh-hmr', '@deepseek-ai/dsh-tool-todo', 'cordis:user-toggleable']) {
+  it('whitelists the currently-disabled set as toggleable', () => {
+    for (const name of [
+      '@deepseek-ai/dsh-tool-pwsh', '@deepseek-ai/dsh-skill-badge',
+      '@deepseek-ai/dsh-session-telemetry-otel', '@deepseek-ai/dsh-pwsh-sandbox',
+    ]) {
       expect(isRequiredPlugin(name)).toBe(false)
       expect(isUserToggleable(name)).toBe(true)
     }
   })
 
-  it('whitelist overrides the blacklist for an explicitly toggleable plugin', () => {
-    // image-recognition is on the whitelist, so it is never required.
-    for (const name of ['@deepseek-ai/dsh-image-recognition', '@deepseek-ai/dsh-image-recognition-http']) {
+  it('defaults unknown modules to toggleable', () => {
+    for (const name of ['@fixture/never', 'cordis:user-toggleable']) {
       expect(isRequiredPlugin(name)).toBe(false)
       expect(isUserToggleable(name)).toBe(true)
     }
@@ -27,8 +29,7 @@ describe('isRequiredPlugin (blacklist/whitelist, default-open)', () => {
 })
 
 describe('AVAILABLE_BUNDLES', () => {
-  it('lists the offline-installable optional bundles', () => {
-    expect(AVAILABLE_BUNDLES).toContain('@deepseek-ai/dsh-image-recognition-bundle')
-    expect(new Set(AVAILABLE_BUNDLES).size).toBe(AVAILABLE_BUNDLES.length)
+  it('is empty: no optional bundles ship as offline-installable yet', () => {
+    expect(AVAILABLE_BUNDLES).toEqual([])
   })
 })
