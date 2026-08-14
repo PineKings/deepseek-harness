@@ -16,6 +16,7 @@ import type {} from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-image-recognition'
 import {
   ImageRecognitionHttpProvider,
+  IMAGE_RECOGNITION_DEFAULT_BASE_URL,
   IMAGE_RECOGNITION_DEFAULT_MAX_TOKENS,
   IMAGE_RECOGNITION_DEFAULT_MODEL,
 } from './provider.ts'
@@ -23,6 +24,7 @@ import type { ImageRecognitionHttpProviderOptions } from './provider.ts'
 
 export {
   ImageRecognitionHttpProvider,
+  IMAGE_RECOGNITION_DEFAULT_BASE_URL,
   IMAGE_RECOGNITION_DEFAULT_MAX_TOKENS,
   IMAGE_RECOGNITION_DEFAULT_MODEL,
   IMAGE_RECOGNITION_HTTP_PROVIDER_ID,
@@ -35,17 +37,19 @@ export const name = 'image-recognition-http'
 /** The image-recognition seam this provider registers into. */
 export const inject = ['imageRecognition']
 
-const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY'
+// Distinct from the main chat model's key: image recognition may use a
+// different provider (e.g. Aliyun DashScope) than the conversation LLM.
+const DEFAULT_API_KEY_ENV = 'IMAGE_RECOGNITION_API_KEY'
 
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
 export interface Config {
   /** Literal API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
   apiKey?: string
-  /** Credential reference resolved for each recognition; defaults to `DEEPSEEK_API_KEY`. */
+  /** Credential reference resolved per recognition; defaults to `IMAGE_RECOGNITION_API_KEY`. */
   apiKeyEnv?: string
-  /** OpenAI-compatible endpoint base; `/chat/completions` is appended. */
+  /** OpenAI-compatible endpoint base; `/chat/completions` is appended. Defaults to Aliyun DashScope compatible-mode. */
   baseURL?: string
-  /** Vision model name. Defaults to `deepseek-v4-flash`. */
+  /** Vision model name; defaults to `qwen3-vl-flash` (an image-recognition-specific default, not the chat model). */
   model?: string
   /** Upper bound on generated tokens. Defaults to 2048. */
   maxTokens?: number
@@ -54,7 +58,7 @@ export interface Config {
 export const Config: z<Config> = z.object({
   apiKey: z.string().role('secret'),
   apiKeyEnv: z.string().role('credential-ref').default(DEFAULT_API_KEY_ENV),
-  baseURL: z.string(),
+  baseURL: z.string().default(IMAGE_RECOGNITION_DEFAULT_BASE_URL),
   model: z.string().default(IMAGE_RECOGNITION_DEFAULT_MODEL),
   maxTokens: z.number().step(1).min(1).default(IMAGE_RECOGNITION_DEFAULT_MAX_TOKENS),
 })
@@ -89,7 +93,7 @@ function resolveOptions(ctx: Context, config: Config): ImageRecognitionHttpProvi
     },
     baseURL: config.baseURL
       ?? launchEnvironmentOf(ctx).get(BASE_URL_ENV)?.value
-      ?? '',
+      ?? IMAGE_RECOGNITION_DEFAULT_BASE_URL,
     model: config.model ?? IMAGE_RECOGNITION_DEFAULT_MODEL,
     maxTokens: config.maxTokens ?? IMAGE_RECOGNITION_DEFAULT_MAX_TOKENS,
     recordRequest: (request) => {

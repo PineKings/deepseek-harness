@@ -8,10 +8,10 @@ URL and returns the recognized text.
 
 | Key | Type | Meaning |
 |---|---|---|
-| `baseURL` | string | Endpoint base; `/chat/completions` is appended. Blank inherits `$DSH_IMAGE_RECOGNITION_BASE_URL`, else unavailable. |
+| `baseURL` | string | Endpoint base; `/chat/completions` is appended. Defaults to `https://dashscope.aliyuncs.com/compatible-mode/v1` (Aliyun DashScope compatible-mode); `$DSH_IMAGE_RECOGNITION_BASE_URL` overrides. |
 | `apiKey` | string (secret) | Literal key; prefer `apiKeyEnv`. |
-| `apiKeyEnv` | string (credential-ref) | Credential reference resolved per recognition; defaults to `DEEPSEEK_API_KEY`. |
-| `model` | string | Vision model name; defaults to `deepseek-v4-flash`. |
+| `apiKeyEnv` | string (credential-ref) | Credential reference resolved per recognition; defaults to `IMAGE_RECOGNITION_API_KEY` (distinct from the main chat model's `DEEPSEEK_API_KEY`). |
+| `model` | string | Vision model name; defaults to `qwen3-vl-flash` (an image-recognition-specific default, independent of the chat model). |
 | `maxTokens` | number | Generated-token bound; defaults to 2048. |
 
 The endpoint and key are editable live through the `image-recognition-http`

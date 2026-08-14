@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImageRecognitionRequest } from '@deepseek-ai/dsh-image-recognition'
 import {
   ImageRecognitionHttpProvider,
-  IMAGE_RECOGNITION_DEFAULT_MODEL,
   type ImageRecognitionHttpProviderOptions,
 } from '../src/provider.ts'
 
@@ -15,7 +14,7 @@ function makeProvider(overrides: Partial<ImageRecognitionHttpProviderOptions> = 
   return new ImageRecognitionHttpProvider(() => ({
     resolveApiKey: async () => 'key',
     baseURL: 'https://vision.example.com/v1',
-    model: IMAGE_RECOGNITION_DEFAULT_MODEL,
+    model: 'vision-model',
     maxTokens: 128,
     ...overrides,
   }))
@@ -57,6 +56,11 @@ describe('ImageRecognitionHttpProvider.recognize', () => {
 
   it('throws IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING without a key', async () => {
     await expect(makeProvider({ apiKey: '', resolveApiKey: async () => undefined }).recognize(request))
+      .rejects.toThrow(expect.objectContaining({ code: 'IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING' }))
+  })
+
+  it('throws IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING without a model', async () => {
+    await expect(makeProvider({ model: '' }).recognize(request))
       .rejects.toThrow(expect.objectContaining({ code: 'IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING' }))
   })
 

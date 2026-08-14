@@ -32,8 +32,9 @@ declare module '@deepseek-ai/dsh-session/types' {
   }
 }
 
-export const IMAGE_RECOGNITION_DEFAULT_MODEL = 'deepseek-v4-flash'
+export const IMAGE_RECOGNITION_DEFAULT_MODEL = 'qwen3-vl-flash'
 export const IMAGE_RECOGNITION_DEFAULT_MAX_TOKENS = 2048
+export const IMAGE_RECOGNITION_DEFAULT_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 
 const USER_AGENT = 'deepseek-harness/0.0.1'
 
@@ -112,6 +113,12 @@ export class ImageRecognitionHttpProvider implements ImageRecognitionProvider {
     if (apiKey === undefined || apiKey.length === 0) {
       throw new ImageRecognitionError(
         'image-recognition provider has no API key configured; set one in the plugin settings or environment',
+        'IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING',
+      )
+    }
+    if (options.model.length === 0) {
+      throw new ImageRecognitionError(
+        'image-recognition provider has no model configured; set one in the plugin settings',
         'IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING',
       )
     }
