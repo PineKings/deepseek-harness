@@ -96,5 +96,9 @@ Prefix-stable while the guidance text is unchanged.
 
 ## Known Limitations and Deferred Work
 
+- **Dormant until configured:** the image-task injection is gated on a usable
+  provider, so without a configured endpoint the capability is inert and the
+  model is not guided to recognition. Direct `recognize_image` calls then throw
+  a clear `ImageRecognitionError`.
 - Path/URL detection is heuristic and can be disabled; misdetections are possible.
 - Requires a configured, available provider — see `dsh-image-recognition-http`.

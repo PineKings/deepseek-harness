@@ -98,3 +98,22 @@ describe('ImageRecognitionRuntime selection', () => {
       .rejects.toThrow(expect.objectContaining({ code: 'IMAGE_RECOGNITION_PROVIDER_AMBIGUOUS' }))
   })
 })
+
+describe('ImageRecognitionRuntime.available', () => {
+  it('is false with no registered provider', async () => {
+    const { runtime } = await mountRuntime()
+    expect(runtime.available()).toBe(false)
+  })
+
+  it('is false when the configured provider is unavailable (not configured)', async () => {
+    const { runtime } = await mountRuntime({ provider: 'http' })
+    runtime.registerProvider(makeProvider('http', unavailable, () => Promise.resolve(recognizeResult('a'))))
+    expect(runtime.available()).toBe(false)
+  })
+
+  it('is true when a configured provider is available', async () => {
+    const { runtime } = await mountRuntime({ provider: 'http' })
+    runtime.registerProvider(makeProvider('http', available, () => Promise.resolve(recognizeResult('a'))))
+    expect(runtime.available()).toBe(true)
+  })
+})

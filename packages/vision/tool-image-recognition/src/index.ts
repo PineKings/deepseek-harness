@@ -150,6 +150,9 @@ export function apply(ctx: Context, config: Config = {}): void {
     const decision = await next()
     if (decision.kind === 'reject') return decision
     if (!hasImageSignal(decision.messages, detectBlocks, detectPaths)) return decision
+    // Dormant until configured: without a usable provider the recognition
+    // surface is inert, so the model is not guided to a call that can only fail.
+    if (!ctx.imageRecognition.available()) return decision
     signal.throwIfAborted()
     const lookup = { cwd: agent.session.header.cwd, signal, scope: agent }
     const skill = await ctx.skills.get(SKILL_NAME, lookup)

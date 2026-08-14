@@ -103,6 +103,26 @@ export class ImageRecognitionRuntime extends Service {
   }
 
   /**
+   * Whether a provider can currently serve recognition. True when a configured
+   * provider is registered and usable, or exactly one usable provider is
+   * registered without a pin. Cheap and side-effect-free (no network): it reads
+   * only the registry and each provider's local `available()` check, so a
+   * consumer can gate its surface on configuration without attempting a call.
+   * @returns whether recognition is currently configured and usable.
+   */
+  available(): boolean {
+    try {
+      resolveProvider({
+        providers: this.providers,
+        ...this.providerId !== undefined ? { configuredId: this.providerId } : {},
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Run one recognition through the selected provider. Resolves the provider at
    * call time with the selection rules above; throws {@link ImageRecognitionError}
    * when the capability cannot run.
