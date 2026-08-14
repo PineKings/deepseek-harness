@@ -17,7 +17,7 @@ import { isModelInvocable, renderSkillContent } from '@deepseek-ai/dsh-skill'
 import type { ImageInput, ImageRecognitionResult } from '@deepseek-ai/dsh-image-recognition'
 
 export const name = 'tool-image-recognition'
-export const inject = ['agents', 'imageRecognition', 'skills', 'systemPrompt', 'tools']
+export const inject = ['imageRecognition', 'skills', 'systemPrompt', 'tools']
 
 const SKILL_NAME = 'image-recognition'
 
