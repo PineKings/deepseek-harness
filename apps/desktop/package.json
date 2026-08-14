@@ -8,11 +8,13 @@
   "main": "lib/types/main.js",
   "files": [
     "lib/types/*.js",
+    "lib/types/*.cjs",
     "lib/types/*.d.ts",
     "electron-builder.yml"
   ],
   "scripts": {
-    "build": "tsc -b tsconfig.json",
+    "build": "tsc -b tsconfig.json && pnpm run build:preload",
+    "build:preload": "esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=lib/types/preload.cjs",
     "build:harness": "node scripts/build-harness.mjs",
     "generate-release-json": "node scripts/generate-release-json.mjs",
     "stage-release": "node scripts/stage-release.mjs",
@@ -27,6 +29,7 @@
     "@types/node": "^22.0.0",
     "electron": "^42.4.1",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   }

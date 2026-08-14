@@ -50,8 +50,14 @@ const PRODUCT_NAME = 'DeepSeek Harness'
 /** Window icon: the branded PNG in build/, resolved from this ES module's URL. */
 const APP_ICON = fileURLToPath(new URL('../../build/icon.png', import.meta.url))
 
-/** Renderer preload (compiled to lib/types/preload.js), resolved from this ES module's URL. */
-const PRELOAD = fileURLToPath(new URL('./preload.js', import.meta.url))
+/**
+ * Renderer preload, resolved from this ES module's URL. The preload is bundled
+ * to CommonJS (`lib/types/preload.cjs`) rather than left as ESM: the renderer
+ * runs `sandbox: true`, and Electron sandboxed preload scripts only support
+ * CommonJS. An ESM preload would silently fail to load and drop the `dshApp`
+ * bridge from the SPA.
+ */
+const PRELOAD = fileURLToPath(new URL('./preload.cjs', import.meta.url))
 
 /**
  * The self-contained harness runtime bundled into the packaged app by

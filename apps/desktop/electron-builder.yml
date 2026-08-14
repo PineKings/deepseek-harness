@@ -24,6 +24,7 @@ directories:
   output: dist
 files:
   - lib/types/**/*.js
+  - lib/types/**/*.cjs
   - package.json
 # The self-contained harness (build/harness) lands at Contents/Resources/harness
 # in the packaged app; src/main.ts spawns the bundled node + dsh CLI from there.
