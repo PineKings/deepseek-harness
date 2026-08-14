@@ -141,6 +141,7 @@
     "dev:web": "tsx scripts/dev-web.ts --poll",
     "desktop:build": "pnpm run build:lib:host && pnpm --filter @deepseek-ai/dsh-web-frontend run build && pnpm --filter @deepseek-ai/dsh-desktop run build",
     "desktop:dev": "pnpm run desktop:build && pnpm --filter @deepseek-ai/dsh-desktop exec electron .",
+    "desktop:dev:fast": "pnpm --filter @deepseek-ai/dsh-web-frontend run build && pnpm --filter @deepseek-ai/dsh-desktop run build && pnpm --filter @deepseek-ai/dsh-desktop exec electron .",
     "desktop:pack": "pnpm run desktop:build && pnpm --filter @deepseek-ai/dsh-desktop run pack",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
