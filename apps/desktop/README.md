@@ -1,13 +1,51 @@
 # @deepseek-ai/dsh-desktop
 
-Electron desktop shell over the DeepSeek Harness. The Electron main process is a
-thin wrapper: it spawns the real `dsh` CLI running the `web` profile on loopback
-(an OS-assigned port), parses the readiness URL line the profile prints
+Electron desktop shell for DeepSeek Harness. The Electron main process is a thin
+wrapper: it spawns the real `dsh` CLI running the `web` profile on loopback (an
+OS-assigned port), parses the readiness URL line the profile prints
 (`dsh web: http://127.0.0.1:<port>`), and opens a native window at that address.
-
 The harness — its Cordis plugins, webserver, static frontend dist, and WebSocket
 transport — runs exactly as `dsh web` would, as a separate system-Node process,
-so native addons keep their system Node ABI.
+so native addons keep their system Node ABI and are never loaded into Electron.
+
+## Why a system-Node child
+
+Electron's bundled Node ABI differs from the system Node the harness's native
+addons (e.g. `node-pty` for the terminal capability) are built against. Running
+the harness in its own `node` child keeps those addons on the system Node ABI;
+the Electron main and renderer never load them. This is why the desktop is a
+launcher, not a bundler: it delegates the whole harness runtime to a child
+process and only opens a window at the served URL.
+
+## Architecture
+
+```
+Electron main (this package)
+  │  spawns  node <harness>/apps/cli/lib/bin.js --profile web --host 127.0.0.1 --port 0
+  ▼
+system-Node child — the dsh harness
+  │  prints "dsh web: http://127.0.0.1:<port>" on stdout
+  ▼
+Electron opens a BrowserWindow at that loopback URL
+```
+
+The main process keeps the window bound to the child: it reads the child's
+stdout for the readiness line, opens the window once the port is known, and
+quits when the child exits. A fatal child failure is shown in a native error
+box.
+
+## Feature surface
+
+- **Chinese application menu** — replaces Electron's English default with
+  文件/编辑/视图/窗口/帮助 (plus the macOS app menu: 关于/服务/隐藏/退出). Menu
+  items are Electron *roles* with localized labels, so accelerators stay the
+  system defaults (e.g. `Cmd+R` reload, `Cmd+Alt+I` DevTools).
+- **Branded icon** — `build/icon.png` (1024px) is used for the window icon and,
+  through `electron-builder.yml`, derived into the per-target `.icns`/`.ico`.
+  Replace it with final artwork anytime.
+- **Self-contained harness** — the packaged app ships the full harness runtime
+  under `Contents/Resources/harness` (see below), so it runs on any target
+  machine with no external Node or repository install.
 
 ## Run from a checkout
 
@@ -18,14 +56,77 @@ pnpm desktop:dev        # opens the desktop window
 ```
 
 `desktop:dev` builds the frontend dist and the `dsh` CLI, then launches
-Electron. Override the spawned Node or `dsh` entry with `DSH_NODE` / `DSH_ENTRY`.
+Electron. In development the harness resolves from the workspace, and you can
+override the spawned Node or `dsh` entry with `DSH_NODE` / `DSH_ENTRY`.
 
-## Package
+## Packaging
 
 ```sh
-pnpm desktop:pack       # electron-builder: mac .dmg / win .nsis in apps/desktop/dist
+pnpm --filter @deepseek-ai/dsh-desktop run build:harness   # (re)assemble the bundled runtime
+pnpm desktop:pack                                          # electron-builder: mac .dmg / win .nsis
 ```
 
-Packaging is unsigned by default; provide a certificate to distribute. The
-harness child needs a Node runtime on the target platform — see
-`electron-builder.yml` and the notes in `src/main.ts`.
+Artifacts land in `apps/desktop/dist`.
+
+### The self-contained harness (`build/harness`)
+
+The harness's pnpm workspace does **not** cleanly materialize into a portable
+node_modules: its packages are linked through per-package symlinks to vendored
+sources at the repository root (`vendor/`, `packages/`, `native/`), it has
+native addons built for a specific Node ABI, and the web profile serves a
+separately built frontend dist. `pnpm deploy` and electron-builder's dependency
+resolution both produce incomplete or broken copies of this runtime.
+
+The only known-good runtime is the repository's own working tree. So
+`scripts/build-harness.mjs` assembles a self-contained copy into
+`apps/desktop/build/harness`, preserving the relative layout the symlinks
+depend on:
+
+```
+build/harness/
+  node_modules/   the full dependency store + link network
+  vendor/         vendored Cordis packages the symlinks resolve to
+  packages/       workspace packages the symlinks resolve to
+  native/         native addon sources (landlock-run)
+  apps/cli/       the dsh CLI (the harness entry)
+  apps/web/       the frontend + built dist
+  bin/node        the platform Node binary the child runs on
+```
+
+electron-builder ships this as an `extraResource` at
+`Contents/Resources/harness`, and `src/main.ts` spawns
+`Resources/harness/bin/node` + `Resources/harness/apps/cli/lib/bin.js` with the
+harness root as the child working directory. Because every symlink is relative
+to that tree, the bundled runtime resolves identically on any machine of the
+same OS/arch.
+
+### Platform matrix
+
+Each target platform needs its own harness: the bundled `bin/node` and the
+native addons are OS/arch-specific. Regenerate `build/harness` on each target
+platform (or per-target in CI) before packaging that platform. The current
+configuration targets **macOS arm64** (`mac.target: dmg`); `win.target: nsis`
+is declared but needs a Windows-built harness.
+
+### Signing
+
+No signing is configured (`electron-builder.yml` has no `mac.sign` identity).
+Artifacts are unsigned: on first open, macOS Gatekeeper may block them (open
+via right-click → Open, or add a `Developer ID Application` certificate to
+distribute). Provide a certificate before public distribution.
+
+### Size
+
+The bundled harness is multi-GB uncompressed (≈2 GB), dominated by
+`node_modules`; the compressed `.dmg` is on the order of a few hundred MB to
+~1 GB. This is the inherent footprint of shipping the full harness runtime
+standalone, and is the accepted trade-off for a zero-external-dependency app.
+
+## Notes
+
+- `asar: false` and `npmRebuild: false` are deliberate (see
+  `electron-builder.yml` comments): the harness stays as real on-disk files for
+  the child and its native addons, and native addons are not rebuilt for the
+  Electron ABI because they never load under Electron.
+- The profile data (`~/.dsh/profiles/web`) is created and read on the host the
+  app runs on; it is not part of the packaged artifact.

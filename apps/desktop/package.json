@@ -4,6 +4,7 @@
   "version": "0.1.0-rc.5",
   "private": true,
   "type": "module",
+  "author": "PineSound",
   "main": "lib/types/main.js",
   "files": [
     "lib/types/*.js",
@@ -12,6 +13,7 @@
   ],
   "scripts": {
     "build": "tsc -b tsconfig.json",
+    "build:harness": "node scripts/build-harness.mjs",
     "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run",
     "pack": "electron-builder"

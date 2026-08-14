@@ -13,22 +13,123 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { resolve } from 'node:path'
-import { app, dialog, BrowserWindow } from 'electron'
+import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { app, dialog, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 
 import { LOOPBACK_HOST, parseReadyPort } from './ready-port.ts'
 
 const require = createRequire(import.meta.url)
 
+/** User-facing product name (the npm name is the scoped package id). */
+const PRODUCT_NAME = 'DeepSeek Harness'
+
+/** Window icon: the branded PNG in build/, resolved from this ES module's URL. */
+const APP_ICON = fileURLToPath(new URL('../../build/icon.png', import.meta.url))
+
+/**
+ * The self-contained harness runtime bundled into the packaged app by
+ * electron-builder's `extraResources` (see electron-builder.yml): a copy of the
+ * repository's working node_modules plus vendor/packages/native/apps and a
+ * bundled Node binary, so the harness child runs on any machine with no
+ * external install. In development the harness resolves from the workspace.
+ */
+function harnessRoot(): string | undefined {
+  return app.isPackaged ? join(process.resourcesPath, 'harness') : undefined
+}
+
+/**
+ * Install a Chinese application menu, replacing Electron's English default.
+ * Roles carry the platform behavior (close, quit, zoom, DevTools, …); only the
+ * visible labels are localized, so the accelerators stay the system defaults.
+ */
+function installAppMenu(): void {
+  const isMac = process.platform === 'darwin'
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [{
+        label: PRODUCT_NAME,
+        submenu: [
+          { role: 'about', label: `关于 ${PRODUCT_NAME}` },
+          { type: 'separator' },
+          { role: 'services', label: '服务' },
+          { type: 'separator' },
+          { role: 'hide', label: `隐藏 ${PRODUCT_NAME}` },
+          { role: 'hideOthers', label: '隐藏其他' },
+          { role: 'unhide', label: '全部显示' },
+          { type: 'separator' },
+          { role: 'quit', label: `退出 ${PRODUCT_NAME}` },
+        ],
+      }] satisfies MenuItemConstructorOptions[]
+      : []),
+    {
+      label: '文件',
+      submenu: [
+        isMac
+          ? { role: 'close', label: '关闭窗口' }
+          : { role: 'quit', label: '退出' },
+      ],
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
+    },
+    {
+      label: '视图',
+      submenu: [
+        { role: 'reload', label: '重新加载' },
+        { role: 'forceReload', label: '强制重新加载' },
+        { role: 'toggleDevTools', label: '开发者工具' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: '实际大小' },
+        { role: 'zoomIn', label: '放大' },
+        { role: 'zoomOut', label: '缩小' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: '切换全屏' },
+      ],
+    },
+    {
+      label: '窗口',
+      submenu: [
+        { role: 'minimize', label: '最小化' },
+        { role: 'zoom', label: '缩放' },
+        ...(isMac
+          ? [{ type: 'separator' }, { role: 'front', label: '前置全部窗口' }] satisfies MenuItemConstructorOptions[]
+          : []),
+      ],
+    },
+    {
+      label: '帮助',
+      submenu: [
+        { role: 'about', label: `关于 ${PRODUCT_NAME}` },
+      ],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 /** Spawn's node executable: a bundled one when the app is packaged, else PATH. */
 function nodeExecutable(): string {
+  const harness = harnessRoot()
+  if (harness !== undefined) return join(harness, 'bin/node')
   if (process.env.DSH_NODE) return resolve(process.env.DSH_NODE)
   return 'node'
 }
 
-/** The dsh CLI entry to spawn: an explicit dev override, else the built bin. */
+/** The dsh CLI entry to spawn: the bundled bin when packaged, else the built bin. */
 function dshEntry(): string {
+  const harness = harnessRoot()
+  if (harness !== undefined) return join(harness, 'apps/cli/lib/bin.js')
   if (process.env.DSH_ENTRY) return resolve(process.env.DSH_ENTRY)
   return require.resolve('@deepseek-ai/dsh/lib/bin.js')
 }
@@ -38,7 +139,10 @@ function openWindow(url: string): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 840,
-    title: 'DeepSeek Harness',
+    title: PRODUCT_NAME,
+    // The window icon matters on Linux/Windows; on macOS the dock and menu bar
+    // use the packaged .app icon from electron-builder's build/icon.png.
+    ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
     webPreferences: {
       // The UI is a remote SPA served by the harness; keep Node out of it.
       nodeIntegration: false,
@@ -61,14 +165,17 @@ let session: Session | undefined
 
 /** Fail loudly in the shell when the harness cannot start. */
 function reportFatal(error: unknown): void {
-  void dialog.showErrorBox('DeepSeek Harness failed to start', String(error))
+  void dialog.showErrorBox(`${PRODUCT_NAME} 启动失败`, String(error))
   app.exit(1)
 }
 
 /** Spawn the web profile and open a window once its URL is known. */
 function startSession(): void {
   const entry = dshEntry()
+  const harness = harnessRoot()
   const child = spawn(nodeExecutable(), [entry, '--profile', 'web', '--host', LOOPBACK_HOST, '--port', '0'], {
+    // Run the harness from its own root so relative path resolution is stable.
+    cwd: harness,
     stdio: ['ignore', 'pipe', 'inherit'],
     env: { ...process.env, DSH_TELEMETRY_DISABLED: '1' },
   })
@@ -107,6 +214,7 @@ function startSession(): void {
 }
 
 app.whenReady().then(() => {
+  installAppMenu()
   startSession()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0 && session !== undefined) {

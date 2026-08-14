@@ -8,24 +8,41 @@
 # only for local evaluation until a certificate is provided.
 appId: ai.deepseek.harness
 productName: DeepSeek Harness
+# Native addons (node-pty, …) run under the system-Node child process, never
+# under Electron, so skip @electron/rebuild: rebuilding them for the Electron
+# ABI is wasted work and needs a headers download the local proxy rejects.
+npmRebuild: false
+# The harness runs as an external system-Node child process (see src/main.ts).
+# The fully self-contained runtime lives in build/harness — a copy of the
+# repository's working node_modules plus vendor/packages/native/apps and a
+# bundled Node binary — and is shipped as extraResources so the packaged app
+# runs on any machine with no external install. The Electron shell itself is
+# unpacked (`asar: false`); the harness stays on disk as real files for the
+# child and for the native addons it dlopens.
+asar: false
 directories:
   output: dist
 files:
-  - lib/types/main.js
+  - lib/types/**/*.js
   - package.json
+# The self-contained harness (build/harness) lands at Contents/Resources/harness
+# in the packaged app; src/main.ts spawns the bundled node + dsh CLI from there.
+extraResources:
+  - from: build/harness
+    to: harness
+    filter:
+      - "**/*"
+# One 1024px build/icon.png; electron-builder derives the per-target .icns/.ico.
+icon: build/icon.png
 mac:
   target:
     - dmg
+  icon: build/icon.png
   category: public.app-category.developer-tools
 win:
   target:
     - nsis
+  icon: build/icon.png
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-# Native addons the harness loads (e.g. the PTY node-pty) must live outside the
-# asar archive so the spawned system-Node process can dlopen them by path.
-asarUnpack:
-  - '**/*.node'
-  - 'node_modules/@deepseek-ai/dsh/node_modules/**/*.node'
-  - 'node_modules/node-pty/**'
