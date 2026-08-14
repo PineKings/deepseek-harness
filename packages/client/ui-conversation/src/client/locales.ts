@@ -71,7 +71,7 @@ export const zh = {
   'access.confirm.cancel': '取消',
   'access.confirm.enable': '启用 Full access',
   'hero.headline': '探索未至之境',
-  'hero.preview': '预览版 · 非官方',
+  'hero.preview': '预览版 · 社区版',
   'hero.chooseWorkspace': '选择工作区',
   'session.hierarchy': '会话层级',
   'details.title': '详情',
