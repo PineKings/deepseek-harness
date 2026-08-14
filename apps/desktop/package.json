@@ -1,0 +1,29 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "description": "Electron desktop shell over the dsh harness: spawns the `web` profile on loopback and opens the GUI in a native window.",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "type": "module",
+  "main": "lib/types/main.js",
+  "files": [
+    "lib/types/*.js",
+    "lib/types/*.d.ts",
+    "electron-builder.yml"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json",
+    "test": "vitest run",
+    "pack": "electron-builder"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^42.4.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
+  }
+}

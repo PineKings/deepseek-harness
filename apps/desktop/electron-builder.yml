@@ -1,0 +1,31 @@
+# electron-builder packaging for the DeepSeek Harness desktop shell.
+#
+# The harness runs as a system-Node child process (see src/main.ts), so the
+# packaged app must ship a Node runtime for the platform it targets. Point
+# DSH_NODE at a bundled Node executable at runtime (an electron-builder
+# `extraResource` plus a small resolver in the main process), or keep spawning
+# PATH `node`. No signing is configured; distribute the unsigned artifacts
+# only for local evaluation until a certificate is provided.
+appId: ai.deepseek.harness
+productName: DeepSeek Harness
+directories:
+  output: dist
+files:
+  - lib/types/main.js
+  - package.json
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+# Native addons the harness loads (e.g. the PTY node-pty) must live outside the
+# asar archive so the spawned system-Node process can dlopen them by path.
+asarUnpack:
+  - '**/*.node'
+  - 'node_modules/@deepseek-ai/dsh/node_modules/**/*.node'
+  - 'node_modules/node-pty/**'
