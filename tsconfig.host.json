@@ -294,6 +294,10 @@
     { "path": "./packages/lsp/lsp" },
     { "path": "./packages/lsp/lsp-stdio" },
     { "path": "./packages/lsp/tool-lsp" },
+    { "path": "./packages/vision/image-recognition" },
+    { "path": "./packages/vision/image-recognition-http" },
+    { "path": "./packages/vision/tool-image-recognition" },
+    { "path": "./packages/bundle/image-recognition" },
     { "path": "./apps/cli" },
     { "path": "./apps/desktop" }
   ]

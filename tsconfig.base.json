@@ -250,6 +250,7 @@
         "./packages/workflow/*/src",
         "./packages/web/*/src",
         "./packages/attachment/*/src",
+        "./packages/vision/*/src",
         "./packages/spill/*/src",
         "./packages/todo/*/src",
         "./packages/bundle/*/src",
