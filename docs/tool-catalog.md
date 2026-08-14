@@ -39,6 +39,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
+| `@deepseek-ai/dsh-tool-image-recognition` | `recognize_image` | `ctx.tools`, `ctx.skills`, `ctx.imageRecognition`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | recognize_image keeps provider selection behind ctx.imageRecognition so the model-visible schema stays stable across backend swaps. |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -1871,3 +1872,34 @@ Search the web for current information. Returns an optional summary answer and a
 Source: [`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.
+
+<a id="deepseek-aidsh-tool-image-recognition"></a>
+
+## `@deepseek-ai/dsh-tool-image-recognition`
+
+### `recognize_image`
+
+Recognize the contents of an image (objects, scenes, and text) through the configured image provider and return the recognized text.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "The image to recognize: a file path, an https URL, or a data: URL."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Optional recognition focus, e.g. \"transcribe the text\" or \"describe the scene\"."
+    }
+  },
+  "required": [
+    "image"
+  ]
+}
+```
+
+Source: [`packages/vision/tool-image-recognition/src/index.ts`](../packages/vision/tool-image-recognition/src/index.ts)
+
+recognize_image keeps provider selection behind ctx.imageRecognition so the model-visible schema stays stable across backend swaps.

@@ -31,6 +31,9 @@ interface SentenceContract {
  */
 const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
   'packages/core/scope': 'The package is a model-agnostic registration and lifecycle primitive; model-facing consumers own any context selection.',
+  'packages/vision/image-recognition': 'The seam is a model-agnostic provider registry; the model-facing tool and skill live in dsh-tool-image-recognition.',
+  'packages/vision/image-recognition-http': 'The provider is a model-agnostic backend; the model-facing tool and skill live in dsh-tool-image-recognition.',
+  'packages/bundle/image-recognition': 'The bundle mounts model-agnostic service/backend packages; the model-facing tool and skill live in dsh-tool-image-recognition.',
   'packages/util/brand': 'The package is a type-only primitive erased at compile time.',
   'packages/util/home-paths': 'The package only resolves harness-owned host paths; model-facing consumers own any rendered use.',
   'packages/util/launch-environment': 'The package only resolves host environment values; model-facing consumers own any rendered use.',

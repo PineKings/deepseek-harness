@@ -31,6 +31,8 @@ import PlanModeController from '@deepseek-ai/dsh-plan-mode'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import * as WebSearchExa from '@deepseek-ai/dsh-web-search-exa'
 import * as WebFetchLocal from '@deepseek-ai/dsh-web-fetch-http'
+import ImageRecognitionRuntime from '@deepseek-ai/dsh-image-recognition'
+import * as ToolImageRecognition from '@deepseek-ai/dsh-tool-image-recognition'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider, SubagentReportDelivery } from '@deepseek-ai/dsh-subagent'
 import * as ToolSubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
@@ -550,6 +552,20 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-image-recognition',
+    dir: 'tool-image-recognition',
+    source: 'packages/vision/tool-image-recognition/src/index.ts',
+    requires: ['ctx.tools', 'ctx.skills', 'ctx.imageRecognition', 'ctx.systemPrompt'],
+    writes: ['tool/call', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(SkillRegistry)
+      await ctx.plugin(ImageRecognitionRuntime)
+      await ctx.plugin(ToolImageRecognition)
+    },
+    note:
+      'recognize_image keeps provider selection behind ctx.imageRecognition so the model-visible schema stays stable across backend swaps.',
   },
 ]
 
