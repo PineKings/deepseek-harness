@@ -25,6 +25,9 @@ async function harness(): Promise<{
   await ctx.plugin(Loader)
   ctx.loader.builtins.active = activePlugin
   ctx.loader.builtins.pending = pendingPlugin
+  // `cordis:` builtins the toggle tests create; they resolve without a package install.
+  ctx.loader.builtins['user-toggleable'] = activePlugin
+  ctx.loader.builtins['host-webserver'] = activePlugin
   await ctx.plugin(PluginInventoryGateway)
   const inventory = ctx.get('pluginInventory') as PluginInventoryGateway
   return { ctx, inventory }
@@ -43,17 +46,26 @@ describe('PluginInventoryGateway', () => {
     ])
   })
 
-  it('setEnabled toggles the Loader entry live', async () => {
+  it('setEnabled toggles a user-toggleable Loader entry live', async () => {
     const { ctx, inventory } = await harness()
-    const id = await ctx.loader.create({ name: 'cordis:active' }) as PluginEntryId
+    const id = await ctx.loader.create({ name: 'cordis:user-toggleable' }) as PluginEntryId
     await inventory.setEnabled(id, false)
     expect(inventory.list().entries.find(entry => entry.entryId === id)).toEqual({
       entryId: id,
-      moduleName: 'cordis:active',
+      moduleName: 'cordis:user-toggleable',
       enabled: false,
+      protected: false,
       fiberPhase: null,
     })
     await inventory.setEnabled(id, true)
+    expect(inventory.list().entries.find(entry => entry.entryId === id)?.enabled).toBe(true)
+  })
+
+  it('setEnabled refuses a required plugin', async () => {
+    const { ctx, inventory } = await harness()
+    const id = await ctx.loader.create({ name: 'cordis:host-webserver' }) as PluginEntryId
+    expect(inventory.list().entries.find(entry => entry.entryId === id)?.protected).toBe(true)
+    await expect(inventory.setEnabled(id, false)).rejects.toThrow(/required by the application/)
     expect(inventory.list().entries.find(entry => entry.entryId === id)?.enabled).toBe(true)
   })
 
@@ -74,18 +86,21 @@ describe('PluginInventoryGateway', () => {
         entryId: activeId,
         moduleName: 'cordis:active',
         enabled: true,
+        protected: true,
         fiberPhase: 'active',
       },
       {
         entryId: pendingId,
         moduleName: 'cordis:pending',
         enabled: true,
+        protected: true,
         fiberPhase: 'pending',
       },
       {
         entryId: disabledId,
         moduleName: 'cordis:not-installed',
         enabled: false,
+        protected: true,
         fiberPhase: null,
       },
     ]))
@@ -95,6 +110,7 @@ describe('PluginInventoryGateway', () => {
       entryId: activeId,
       moduleName: 'cordis:active',
       enabled: false,
+      protected: true,
       fiberPhase: null,
     })
 

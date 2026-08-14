@@ -28,6 +28,12 @@ Web UI 的插件列表是只读的：它展示 Loader 的条目和生命周期�
 Web 插件列表 tab（`ui-settings-plugin-inventory`）在每张展开卡片的详情区加启用/停用按钮，
 绑定该 Remote，切换后重新拉取列表。
 
+**门卫：** 每条条目带 `protected` 标记。规则默认保护——停用一个被其他插件注入的插件会破坏
+依赖者，启用一个服务不可用的插件会导致启动失败（坏切换后都会表现为
+`dsh-tool-ralph: pending (waiting for service: workflowEngine)`）。所以 `setEnabled`
+拒绝、UI 隐藏所有随包插件的开关；只有通过 opt-in bundle 添加的插件
+（`src/required.ts` 的 `USER_TOGGLEABLE_PLUGINS`）可切换。
+
 ## 持久化注意
 
 仅运行时 toggle 对由 bundle patch 启用的行不持久，因为 `Entry.update` 写回的是补丁后的整棵树，

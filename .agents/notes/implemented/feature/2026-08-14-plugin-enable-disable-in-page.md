@@ -35,6 +35,14 @@ patch's `applyEntryPatches` target lookup.
 The Web plugin-list tab (`ui-settings-plugin-inventory`) adds an enable/disable
 button to each expanded card, wired to the Remote, re-listing after the toggle.
 
+**Guard:** every entry carries a `protected` flag. The rule is default-protect —
+disabling a plugin that another plugin injects breaks the dependent, and
+enabling one whose service is unavailable fails the boot (both surfaced as
+`dsh-tool-ralph: pending (waiting for service: workflowEngine)` after a bad
+toggle). So `setEnabled` refuses and the UI hides the toggle for every shipped
+plugin; only plugins added through an opt-in bundle (`USER_TOGGLEABLE_PLUGINS`
+in `src/required.ts`) are toggleable.
+
 ## Persistence caveat
 
 A runtime toggle alone does not survive a restart for a row enabled by a bundle

@@ -196,15 +196,19 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
                             </div>
                           ) : null}
                         </dl>
-                        <button
-                          className={css.toggle}
-                          type="button"
-                          disabled={busy === entry.entryId}
-                          aria-busy={busy === entry.entryId || undefined}
-                          onClick={() => { toggle(entry.entryId, !entry.enabled) }}
-                        >
-                          {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
-                        </button>
+                        {entry.protected ? (
+                          <p className={css.required}>{t('required')}</p>
+                        ) : (
+                          <button
+                            className={css.toggle}
+                            type="button"
+                            disabled={busy === entry.entryId}
+                            aria-busy={busy === entry.entryId || undefined}
+                            onClick={() => { toggle(entry.entryId, !entry.enabled) }}
+                          >
+                            {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
+                          </button>
+                        )}
                       </div>
                     ) : null}
                   </li>

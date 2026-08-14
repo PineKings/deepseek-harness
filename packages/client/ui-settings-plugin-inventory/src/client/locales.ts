@@ -23,6 +23,7 @@ export const zh = {
   enable: '启用',
   disable: '停用',
   toggling: '切换中…',
+  required: '应用必需插件，不可切换',
 } satisfies Record<string, string>
 
 /** Plugin inventory locale key union. */
@@ -51,4 +52,5 @@ export const en = {
   enable: 'Enable',
   disable: 'Disable',
   toggling: 'Toggling…',
+  required: 'Required by the app; cannot be toggled',
 } satisfies Record<PluginInventoryLocaleKey, string>

@@ -7,6 +7,7 @@ import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
 import { persistPluginDisabled } from './persist.ts'
+import { isRequiredPlugin } from './required.ts'
 import type {
   PluginEntryId,
   PluginFiberPhase,
@@ -64,6 +65,7 @@ export class PluginInventoryGateway extends TypertRemoteService {
         entryId: pluginEntryId(entry.id),
         moduleName: entry.options.name,
         enabled: !entry.disabled,
+        protected: isRequiredPlugin(entry.options.name),
         fiberPhase: entry.fiber === undefined ? null : FIBER_PHASE[entry.fiber.state],
       })
     }
@@ -86,6 +88,9 @@ export class PluginInventoryGateway extends TypertRemoteService {
     const entry = this.ctx.loader.resolve(entryId)
     if (entry === undefined) {
       throw new Error(`plugin entry ${String(entryId)} not found`)
+    }
+    if (isRequiredPlugin(entry.options.name)) {
+      throw new Error(`plugin ${String(entryId)} is required by the application and cannot be toggled`)
     }
     const rowId = entry.options.id
     await this.ctx.loader.update(entryId, { disabled: !enabled })
