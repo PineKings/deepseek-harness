@@ -12,7 +12,7 @@ export type PluginsSettingsLocaleKey =
   | 'webSearchApiKey' | 'webSearchApiKeyHint' | 'webSearchApiKeySet' | 'webSearchApiKeyUnset'
   | 'webSearchBaseUrl' | 'webSearchBaseUrlHint' | 'webSearchMaxUses' | 'webSearchMaxUsesHint'
   | 'imageRecognitionTitle' | 'imageRecognitionDescription'
-  | 'imageRecognitionApiKey' | 'imageRecognitionApiKeyHint' | 'imageRecognitionApiKeySet' | 'imageRecognitionApiKeyUnset'
+  | 'imageRecognitionApiKey' | 'imageRecognitionApiKeyHint' | 'imageRecognitionApiKeySet' | 'imageRecognitionApiKeyUnset' | 'imageRecognitionClearKey'
   | 'imageRecognitionBaseUrl' | 'imageRecognitionBaseUrlHint'
   | 'imageRecognitionModel' | 'imageRecognitionModelHint'
 
@@ -61,6 +61,7 @@ export const en: Record<PluginsSettingsLocaleKey, string> = {
   imageRecognitionApiKeyHint: 'Stored outside the settings file. Leave blank to keep the current key.',
   imageRecognitionApiKeySet: 'A key is configured.',
   imageRecognitionApiKeyUnset: 'No key is configured; recognition is unavailable until one is.',
+  imageRecognitionClearKey: 'Clear key',
   imageRecognitionBaseUrl: 'Endpoint',
   imageRecognitionBaseUrlHint: 'Leave blank to use the provider default.',
   imageRecognitionModel: 'Model',
@@ -106,12 +107,13 @@ export const zh: Record<PluginsSettingsLocaleKey, string> = {
   webSearchBaseUrlHint: '留空则使用提供方默认地址。',
   webSearchMaxUses: '单次请求最多搜索次数',
   webSearchMaxUsesHint: '一次请求在必须作答前最多可以搜索多少次。',
-  imageRecognitionTitle: '图像识别（官方之外的新增）',
-  imageRecognitionDescription: '图像识别的视觉提供方。为deepSeek补充视觉能力',
+  imageRecognitionTitle: '图像识别',
+  imageRecognitionDescription: '图像识别的视觉提供方。为deepSeek补充视觉能力。',
   imageRecognitionApiKey: 'API Key',
   imageRecognitionApiKeyHint: '不写入设置文件。留空表示保持当前密钥。',
   imageRecognitionApiKeySet: '已配置密钥。',
   imageRecognitionApiKeyUnset: '未配置密钥；配置之前图像识别不可用。',
+  imageRecognitionClearKey: '清除密钥',
   imageRecognitionBaseUrl: '接口地址',
   imageRecognitionBaseUrlHint: '留空则使用提供方默认地址。',
   imageRecognitionModel: '模型',

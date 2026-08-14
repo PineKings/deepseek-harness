@@ -99,10 +99,21 @@ export function SecretField(props: Pick<FieldProps, 'id' | 'label' | 'hint' | 't
   configured: boolean
   /** Copy describing the configured state. */
   stateLabel: string
+  /** Optional small clear button to the left of the label; deletes the credential. */
+  clearLabel?: string
+  /** Called when the clear button is pressed. */
+  onClear?: () => void
 }) {
   return (
     <div className={css.field}>
       <div className={css.head}>
+        {props.onClear !== undefined
+          ? (
+            <button type="button" className={css.clear} onClick={props.onClear} aria-label={props.clearLabel}>
+              {props.clearLabel}
+            </button>
+          )
+          : null}
         <label className={css.label} htmlFor={props.id}>{props.label}</label>
         <span className={css.badges}>
           <span className={props.configured ? css.badge : css.badgeMuted}>{props.stateLabel}</span>

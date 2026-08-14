@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImageRecognitionRequest } from '@deepseek-ai/dsh-image-recognition'
 import {
@@ -52,6 +55,28 @@ describe('ImageRecognitionHttpProvider.recognize', () => {
     expect(url).toBe('https://v.example.com/v1/chat/completions')
     const body = JSON.parse(init?.body ?? '{}') as { messages: Array<{ content: Array<{ type: string; image_url: { url: string } }> }> }
     expect(body.messages[0]!.content[1]!.image_url.url).toBe('data:image/png;base64,aGVsbG8=')
+  })
+
+  it('normalizes a trailing slash on the endpoint base', async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: { body?: string }) => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'x' } }] }) }))
+    vi.stubGlobal('fetch', fetchMock)
+    await makeProvider({ baseURL: 'https://v.example.com/v1/' }).recognize(request)
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://v.example.com/v1/chat/completions')
+  })
+
+  it('sends a file-path image as a base64 data URL', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-ir-'))
+    writeFileSync(join(dir, 'img.png'), Buffer.from('hello', 'utf8'))
+    const fetchMock = vi.fn(async (_url: string, _init?: { body?: string }) => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'x' } }] }) }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await makeProvider().recognize({ image: { kind: 'file-path', filePath: join(dir, 'img.png') } })
+      const [, init] = fetchMock.mock.calls[0]!
+      const body = JSON.parse(init?.body ?? '{}') as { messages: Array<{ content: Array<{ image_url?: { url: string } }> }> }
+      expect(body.messages[0]!.content[1]!.image_url!.url).toBe('data:image/png;base64,aGVsbG8=')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('throws IMAGE_RECOGNITION_PROVIDER_CREDENTIAL_MISSING without a key', async () => {

@@ -17,6 +17,24 @@
   gap: 8px;
 }
 
+.clear {
+  flex: none;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: none;
+  border: 1px solid currentColor;
+  border-color: var(--dsw-alias-border-l1);
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--dsw-alias-danger-text);
+  border-color: currentColor;
+}
+
 .label {
   flex: 1;
   min-width: 0;

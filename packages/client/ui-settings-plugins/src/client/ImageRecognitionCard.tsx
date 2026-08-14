@@ -42,6 +42,8 @@ export function ImageRecognitionCard(props: ImageRecognitionCardProps) {
         text={state.apiKey.text}
         configured={state.apiKeyConfigured}
         stateLabel={state.apiKeyConfigured ? t('imageRecognitionApiKeySet') : t('imageRecognitionApiKeyUnset')}
+        clearLabel={t('imageRecognitionClearKey')}
+        onClear={props.clearApiKey}
         onEdit={(text) => { props.edit('apiKey', text) }}
       />
       <ValueField

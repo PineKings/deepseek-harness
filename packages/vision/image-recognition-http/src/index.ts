@@ -41,6 +41,9 @@ export const inject = ['imageRecognition']
 // different provider (e.g. Aliyun DashScope) than the conversation LLM.
 const DEFAULT_API_KEY_ENV = 'IMAGE_RECOGNITION_API_KEY'
 
+/** The main chat model's credential refs; image recognition must never use them. */
+const MODEL_API_KEY_REFS = new Set(['DEEPSEEK_API_KEY', 'DEEPSEEK_OFFICIAL_API_KEY'])
+
 /** Plugin config (all optional — `apply` fills env-var and constant defaults). */
 export interface Config {
   /** Literal API key; prefer {@link apiKeyEnv} so no secret enters configuration files. */
@@ -78,7 +81,10 @@ export const IMAGE_RECOGNITION_HTTP_SETTINGS_NAMESPACE = settingsNamespace('imag
  * @returns options for one recognition.
  */
 function resolveOptions(ctx: Context, config: Config): ImageRecognitionHttpProviderOptions {
-  const apiKeyEnv = credentialRef(config.apiKeyEnv ?? DEFAULT_API_KEY_ENV)
+  // A declared model ref (e.g. DEEPSEEK_API_KEY) would conflate this provider
+  // with the chat model; fall back to the image-recognition ref in that case.
+  const declared = config.apiKeyEnv ?? DEFAULT_API_KEY_ENV
+  const apiKeyEnv = credentialRef(MODEL_API_KEY_REFS.has(declared) ? DEFAULT_API_KEY_ENV : declared)
   const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
     ? config.apiKey
     : undefined

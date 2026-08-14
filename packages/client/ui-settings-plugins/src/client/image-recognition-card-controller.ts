@@ -23,7 +23,14 @@ import {
 export const IMAGE_RECOGNITION_NS = 'image-recognition-http'
 
 /** Credential reference the provider resolves when the section names none. */
-const DEFAULT_API_KEY_REF = 'DEEPSEEK_API_KEY'
+const DEFAULT_API_KEY_REF = 'IMAGE_RECOGNITION_API_KEY'
+
+/**
+ * The main chat model's credential references. Image recognition must never
+ * resolve through these, or saving its key would overwrite the model's (and vice
+ * versa). A stale section that declares one of them is treated as unset.
+ */
+const MODEL_API_KEY_REFS = new Set(['DEEPSEEK_API_KEY', 'DEEPSEEK_OFFICIAL_API_KEY'])
 
 /** Form field the credential control stages under. */
 const API_KEY_FIELD = 'apiKey'
@@ -64,6 +71,8 @@ export interface ImageRecognitionCardState extends CardShell {
 
 /** The registration-side face the image-recognition card's slot entry injects. */
 export interface ImageRecognitionCardFace extends CardActions {
+  /** Delete the configured image-recognition credential, leaving the section empty. */
+  clearApiKey: () => void
   hooks: {
     /** Card snapshot bound by the renderer as useImageRecognitionCard. */
     imageRecognitionCard: SnapshotStore<ImageRecognitionCardState>
@@ -138,7 +147,11 @@ export class ImageRecognitionCardController {
 
   /** Build the face the card's slot registration injects. */
   inject(): ImageRecognitionCardFace {
-    return { hooks: { imageRecognitionCard: this.store }, ...this.form.actions() }
+    return {
+      hooks: { imageRecognitionCard: this.store },
+      clearApiKey: () => { void this.clearKey() },
+      ...this.form.actions(),
+    }
   }
 
   /** Write the staged key, then re-read whether the Host now holds one. */
@@ -151,10 +164,22 @@ export class ImageRecognitionCardController {
     await this.readCredential()
     return this.credential.configured
   }
+
+  /** Delete the referenced credential, leaving the section empty (no vision model used). */
+  private async clearKey(): Promise<void> {
+    try {
+      await this.api.credentials.unset({ ref: refOf(this.scope.getSnapshot()) })
+    } catch (_credentialUnsetFailure) {
+      // Refusals surface through the re-read below.
+    }
+    await this.readCredential()
+  }
 }
 
 /** The credential reference the section names, or the provider's default. */
 function refOf(snapshot: SettingsScopeSnapshot<ImageRecognitionSettings>): string {
   const declared = snapshot.value?.apiKeyEnv
-  return declared !== undefined && declared.length > 0 ? declared : DEFAULT_API_KEY_REF
+  // A declared model ref would conflate this card with the chat model; ignore it.
+  if (declared === undefined || declared.length === 0 || MODEL_API_KEY_REFS.has(declared)) return DEFAULT_API_KEY_REF
+  return declared
 }

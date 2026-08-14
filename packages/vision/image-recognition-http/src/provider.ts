@@ -136,9 +136,13 @@ export class ImageRecognitionHttpProvider implements ImageRecognitionProvider {
     }
     options.recordRequest?.(payload)
 
+    // Normalize a trailing slash on the endpoint base so appending
+    // `/chat/completions` never produces a double-slash path (some providers
+    // 404 on that, e.g. Aliyun DashScope).
+    const base = options.baseURL.replace(/\/+$/, '')
     let response: Response
     try {
-      response = await fetch(`${options.baseURL}/chat/completions`, {
+      response = await fetch(`${base}/chat/completions`, {
         method: 'POST',
         redirect: 'error',
         headers: {

@@ -16,7 +16,10 @@
     - id: image-recognition-http
       name: '@deepseek-ai/dsh-image-recognition-http'
       config:
-        apiKeyEnv: DEEPSEEK_API_KEY
+        # Image recognition has its own credential plane, distinct from the
+        # chat model's. Pointing this at DEEPSEEK_API_KEY would let a save here
+        # overwrite the model's key (and vice versa); use the dedicated ref.
+        apiKeyEnv: IMAGE_RECOGNITION_API_KEY
 
     - id: tool-image-recognition
       name: '@deepseek-ai/dsh-tool-image-recognition'
