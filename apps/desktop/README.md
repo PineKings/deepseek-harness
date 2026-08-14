@@ -122,28 +122,100 @@ The bundled harness is multi-GB uncompressed (≈2 GB), dominated by
 ~1 GB. This is the inherent footprint of shipping the full harness runtime
 standalone, and is the accepted trade-off for a zero-external-dependency app.
 
-## Updates (manual download)
+## Release process
 
 The app is **not code-signed**, so updates are a manual-download flow rather
 than a silent swap. On startup (and hourly), and from the Settings → About
 "check for updates" button (through a preload bridge), the main process fetches
-the OSS manifest (`updates/releases.json`, `DSH_UPDATE_URL` overrides) and
-compares the latest version against `app.getVersion()`. When a newer release
-exists it prompts the user to open the per-platform installer URL.
+the manifest (`updates/releases.json`, `DSH_UPDATE_URL` overrides) and compares
+the latest version against `app.getVersion()`. When a newer release exists it
+prompts the user to open the per-platform installer URL. The web `download/`
+page and the desktop update check read the same manifest, so **one deploy
+publishes both the site and the update channel**.
 
-To publish a release:
+### 1. Bump the app version
+
+The release version lives in **`apps/desktop/package.json` → `version`**. It
+feeds three things: `app.getVersion()` (shown dynamically by the About section
+and compared against the manifest), electron-builder's installer filenames
+(`DeepSeek Harness-<version>-arm64.dmg`), and — derived from those filenames —
+the manifest's `latest`. So bump this one field to the new version:
 
 ```sh
-pnpm --filter @deepseek-ai/dsh-desktop run build:harness
-pnpm desktop:pack                        # produces .dmg (mac) / .nsis .exe (win)
-DSH_RELEASE_NOTES="…" pnpm --filter @deepseek-ai/dsh-desktop run generate-release-json
+# e.g. 0.1.0-rc.5 → 0.1.0-rc.6
 ```
 
-`scripts/generate-release-json.mjs` writes `dist/releases.json` from the built
-installers (`DSH_UPDATE_BASE` defaults to `https://deepseek.pinesound.cn/updates/`).
-Upload `releases.json` plus the `.dmg`/`.exe` to the OSS `updates/` folder, and
-the `deepseek-harness-web` `download/` page renders the same manifest. Building
-the Windows `.exe` on macOS needs wine (or build on a Windows host).
+The scheme is `0.1.0-rc.N`; `generate-release-json` orders versions
+numerically, so `rc.6` correctly outranks `rc.5` (and `0.10.0` outranks
+`0.9.0`). The root `package.json` version is the monorepo workspace version —
+bump it too if you keep them in sync, but only the desktop one is user-visible.
+
+### 2. Build and package
+
+```sh
+pnpm --filter @deepseek-ai/dsh-desktop run build:harness   # assemble the self-contained runtime
+pnpm desktop:pack                                          # electron-builder: .dmg (mac) / .nsis .exe (win)
+```
+
+Artifacts land in `apps/desktop/dist/`. Each target OS/arch needs its own
+harness (`build/harness` bundles a platform Node + native addons), so regenerate
+it on the target platform before packing that platform. Building the Windows
+`.exe` on macOS needs wine (or build on a Windows host).
+
+### 3. Generate the update manifest
+
+```sh
+DSH_RELEASE_NOTES="…本次更新的说明…" pnpm --filter @deepseek-ai/dsh-desktop run generate-release-json
+```
+
+`scripts/generate-release-json.mjs` scans `dist/` for installers and writes
+`dist/releases.json` (single-latest structure): `latest.version`, `latest.date`,
+`releaseNotes`, and per-platform URLs rooted at `DSH_UPDATE_BASE` (default
+`https://deepseek.pinesound.cn/updates/`).
+
+### 4. Stage into the web site (the upload location)
+
+```sh
+pnpm --filter @deepseek-ai/dsh-desktop run stage-release      # --dry-run to preview
+```
+
+`scripts/stage-release.mjs` copies `dist/releases.json` and the installers
+(`.dmg`/`.exe`) into **`deepseek-harness-web/updates/`** — the site root's
+`updates/` folder — and prunes stale installers left from older releases. This
+is the single upload location: everything the update check and download page
+need lives under `updates/`.
+
+### 5. Deploy the site
+
+```sh
+cd ../deepseek-harness-web && python3 deploy.py
+```
+
+`deploy.py` uploads the whole `deepseek-harness-web/` repo root (including
+`download/` and `updates/`) to the OSS bucket root, served at
+`https://deepseek.pinesound.cn/`. Because the desktop default
+`DSH_UPDATE_URL` is `https://deepseek.pinesound.cn/updates/releases.json` and
+the download page fetches `/updates/releases.json` (same origin), no further
+configuration is needed. `deploy.py` wipes the bucket then uploads, so the repo
+root is the source of truth.
+
+### 6. The web pages
+
+The release is installable from the web through the pages under
+`deepseek-harness-web/`:
+
+- **`download/index.html`** — the download page, **required** for a web
+  release. Reads `updates/releases.json` and renders the latest version, date,
+  release notes, and per-platform install buttons. Always include this in any
+  release.
+- **`index.html`** — the site homepage (link to `download/`).
+- **`privacy/`, `data-processing/`** — supporting pages (already part of the
+  site).
+
+`deploy.py` serves every file under the repo root automatically (site root =
+bucket root), so a new page is published by just adding it at the root and
+re-deploying. If you add a page, link it from the homepage or the download page
+so it is discoverable.
 
 ## Notes
 

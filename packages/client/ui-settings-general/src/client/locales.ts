@@ -20,6 +20,8 @@ export const zh = {
   'about.updateAvailable': '发现新版本',
   'about.download': '去下载',
   'about.updateCheckFailed': '检查更新失败',
+  'about.releaseSite': '发布站',
+  'about.officialSite': '官网',
 } satisfies Record<string, string>
 
 /** The settings namespace key union. */
@@ -45,4 +47,6 @@ export const en = {
   'about.updateAvailable': 'A new version is available',
   'about.download': 'Download',
   'about.updateCheckFailed': 'Could not check for updates',
+  'about.releaseSite': 'Release site',
+  'about.officialSite': 'Official site',
 } satisfies Record<SettingsKey, string>

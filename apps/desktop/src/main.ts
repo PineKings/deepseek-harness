@@ -34,9 +34,12 @@ const UPDATE_MANIFEST_URL = process.env.DSH_UPDATE_URL ?? 'https://deepseek.pine
 /** The renderer's update-check IPC channel. */
 const UPDATE_CHANNEL = 'check-update'
 
+/** The renderer's static build-identity IPC channel. */
+const APP_INFO_CHANNEL = 'get-app-info'
+
 /** The release manifest published on OSS (`updates/releases.json`). */
 interface ReleaseManifest {
-  readonly latest: { readonly version: string }
+  readonly latest: { readonly version: string; readonly date?: string }
   readonly releaseNotes?: string
   readonly platforms: Partial<Record<'mac-arm64' | 'mac-x64' | 'win-x64', { readonly url: string }>>
 }
@@ -180,6 +183,7 @@ async function checkForUpdate(): Promise<UpdateCheckResult> {
       status: 'update-available',
       current,
       latest,
+      date: manifest.latest.date,
       notes: manifest.releaseNotes,
       url: platformDownloadUrl(manifest),
     }
@@ -290,6 +294,13 @@ app.whenReady().then(() => {
   installAppMenu()
   // The SPA's About "check for updates" button asks the main process.
   ipcMain.handle(UPDATE_CHANNEL, () => checkForUpdate())
+  // The SPA's About reads this build's version from the main process (no network).
+  ipcMain.handle(APP_INFO_CHANNEL, () => ({
+    version: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    productName: PRODUCT_NAME,
+  }))
   startSession()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0 && session !== undefined) {

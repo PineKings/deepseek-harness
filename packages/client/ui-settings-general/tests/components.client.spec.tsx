@@ -63,13 +63,24 @@ describe('GeneralSection', () => {
 describe('AboutSection', () => {
   const aboutProps: AboutSectionComponentProps = { close: vi.fn(), t } as never
 
-  it('renders the company copy and the current version', () => {
+  it('renders the company copy and a current-version row (fallback on plain web)', () => {
     render(<AboutSection {...aboutProps} />)
     expect(screen.getByText('PineSound')).toBeTruthy()
     expect(screen.getByText('AI audio creation platform')).toBeTruthy()
     expect(screen.getByText(en['about.currentVersion'])).toBeTruthy()
-    expect(screen.getByText('0.1.0-rc.5')).toBeTruthy()
+    // No desktop bridge on a plain web surface: the version row falls back.
+    expect(screen.getByText('—')).toBeTruthy()
     expect(screen.getByRole('button', { name: en['about.checkUpdates'] })).toBeTruthy()
+  })
+
+  it('shows the packaged version from the desktop bridge', async () => {
+    ;(window as { dshApp?: unknown }).dshApp = { getAppInfo: vi.fn(async () => ({ version: '0.1.0-rc.5' })) }
+    try {
+      render(<AboutSection {...aboutProps} />)
+      await screen.findByText('0.1.0-rc.5')
+    } finally {
+      delete (window as { dshApp?: unknown }).dshApp
+    }
   })
 
   it('reports up-to-date on a web surface without the desktop bridge', async () => {
@@ -83,19 +94,30 @@ describe('AboutSection', () => {
   it('shows a download link when the bridge reports a newer version', async () => {
     const checkUpdate = vi.fn(async () => ({
       status: 'update-available' as const, current: '0.1.0-rc.5', latest: '0.1.0-rc.6',
-      notes: 'New release', url: 'https://example.com/app.dmg',
+      date: '2026-08-01', notes: 'New release', url: 'https://example.com/app.dmg',
     }))
-    ;(window as { dshApp?: unknown }).dshApp = { checkUpdate }
+    ;(window as { dshApp?: unknown }).dshApp = {
+      checkUpdate,
+      getAppInfo: vi.fn(async () => ({ version: '0.1.0-rc.5' })),
+    }
     try {
       render(<AboutSection {...aboutProps} />)
       fireEvent.click(screen.getByRole('button', { name: en['about.checkUpdates'] }))
       const status = await screen.findByRole('status')
       expect(status.textContent).toContain(en['about.updateAvailable'])
       expect(status.textContent).toContain('0.1.0-rc.6')
+      expect(status.textContent).toContain('2026-08-01')
+      expect(status.textContent).toContain('New release')
       expect(screen.getByRole('link', { name: en['about.download'] }).getAttribute('href')).toBe('https://example.com/app.dmg')
     } finally {
       delete (window as { dshApp?: unknown }).dshApp
     }
+  })
+
+  it('links to the release site and the official site', () => {
+    render(<AboutSection {...aboutProps} />)
+    expect(screen.getByRole('link', { name: en['about.releaseSite'] }).getAttribute('href')).toBe('https://deepseek.pinesound.cn/')
+    expect(screen.getByRole('link', { name: en['about.officialSite'] }).getAttribute('href')).toBe('https://www.deepseek.com/')
   })
 })
 

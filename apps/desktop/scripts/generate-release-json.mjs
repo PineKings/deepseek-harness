@@ -26,6 +26,23 @@ function versionOf(filename) {
   return match === null ? undefined : match[1]
 }
 
+/** Order two versions: numeric segments first, then the pre-release suffix. */
+function compareVersions(a, b) {
+  const num = (v) => v.split(/[-+]/)[0].split('.').map((n) => Number(n))
+  const pre = (v) => { const i = v.indexOf('-'); return i === -1 ? '' : v.slice(i + 1) }
+  const an = num(a), bn = num(b)
+  for (let i = 0; i < 3; i++) {
+    if (an[i] !== bn[i]) return an[i] - bn[i]
+  }
+  // Equal numeric core: a release with a pre-release suffix is OLDER than a
+  // stable one (e.g. `1.0.0-rc.1` < `1.0.0`); two suffixes compare by string.
+  const ap = pre(a), bp = pre(b)
+  if (ap === bp) return 0
+  if (ap === '') return 1
+  if (bp === '') return -1
+  return ap < bp ? -1 : 1
+}
+
 const platforms = {}
 let latestVersion
 let latestDate = process.env.DSH_RELEASE_DATE ?? new Date().toISOString().slice(0, 10)
@@ -38,7 +55,7 @@ for (const entry of readdirSync(dist)) {
     ? entry.includes('arm64') ? 'mac-arm64' : 'mac-x64'
     : 'win-x64'
   platforms[key] = { url: `${base}${encodeURIComponent(entry)}` }
-  if (latestVersion === undefined || version > latestVersion) {
+  if (latestVersion === undefined || compareVersions(version, latestVersion) > 0) {
     latestVersion = version
     latestDate = process.env.DSH_RELEASE_DATE ?? new Date().toISOString().slice(0, 10)
   }

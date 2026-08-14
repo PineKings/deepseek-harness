@@ -14,11 +14,27 @@ export interface UpdateCheckResult {
   readonly status: 'up-to-date' | 'update-available' | 'error'
   readonly current: string
   readonly latest?: string | undefined
+  /** Release date of the newest release (YYYY-MM-DD), when the manifest supplies it. */
+  readonly date?: string | undefined
   readonly notes?: string | undefined
   readonly url?: string | undefined
+}
+
+/** Static identity of this build, read from the main process (no network). */
+export interface AppInfo {
+  /** The packaged version (`app.getVersion()`). */
+  readonly version: string
+  /** Platform the app runs on (`process.platform`). */
+  readonly platform: NodeJS.Platform
+  /** CPU architecture (`process.arch`). */
+  readonly arch: string
+  /** User-facing product name. */
+  readonly productName: string
 }
 
 contextBridge.exposeInMainWorld('dshApp', {
   /** Ask the main process for the latest release; resolves the check result. */
   checkUpdate: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('check-update') as Promise<UpdateCheckResult>,
+  /** Ask the main process for this build's static identity (no network). */
+  getAppInfo: (): Promise<AppInfo> => ipcRenderer.invoke('get-app-info') as Promise<AppInfo>,
 })

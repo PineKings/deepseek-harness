@@ -15,6 +15,7 @@
     "build": "tsc -b tsconfig.json",
     "build:harness": "node scripts/build-harness.mjs",
     "generate-release-json": "node scripts/generate-release-json.mjs",
+    "stage-release": "node scripts/stage-release.mjs",
     "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run",
     "pack": "electron-builder"

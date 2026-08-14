@@ -61,11 +61,6 @@
   align-self: flex-start;
 }
 
-.check:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
 .status {
   margin: 0;
   opacity: 0.75;
@@ -73,4 +68,37 @@
 
 .download {
   align-self: flex-start;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* External-site links styled as the design-system outline capsule button. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 22px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
 }
