@@ -1,0 +1,25 @@
+# The dsh-image-recognition-bundle patch: an opt-in image-recognition surface
+# over dsh-base. It is NOT part of any default profile's bundles list — a user
+# opts in by adding this package to the profile's dsh.profile.bundles (or via
+# `dsh plugin --profile <name> add @deepseek-ai/dsh-image-recognition-bundle`).
+#
+# The seam row pins the http provider; the provider row carries the credential
+# reference the provider resolves per recognition; the consumer row toggles the
+# deterministic image-task injection.
+
+- insert:
+    - id: image-recognition
+      name: '@deepseek-ai/dsh-image-recognition'
+      config:
+        provider: http
+
+    - id: image-recognition-http
+      name: '@deepseek-ai/dsh-image-recognition-http'
+      config:
+        apiKeyEnv: DEEPSEEK_API_KEY
+
+    - id: tool-image-recognition
+      name: '@deepseek-ai/dsh-tool-image-recognition'
+      config:
+        detectImageBlocks: true
+        detectImagePaths: true
