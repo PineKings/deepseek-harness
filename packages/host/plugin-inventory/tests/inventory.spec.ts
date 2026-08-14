@@ -1,6 +1,11 @@
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
+import { readProfileManifest } from '@deepseek-ai/dsh-app-boot'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import PluginInventoryGateway, { type PluginEntryId } from '../src/index.ts'
 
@@ -34,7 +39,7 @@ async function harness(): Promise<{
 }
 
 describe('PluginInventoryGateway', () => {
-  it('publishes one direct list method under the pluginInventory namespace', async () => {
+  it('publishes direct methods under the pluginInventory namespace', async () => {
     const { inventory } = await harness()
     expect(inventory.typertRemote).toMatchObject({
       serviceKey: 'pluginInventory',
@@ -43,6 +48,9 @@ describe('PluginInventoryGateway', () => {
     expect(remoteMethods(inventory)).toEqual([
       { method: 'list', invocation: { kind: 'direct' } },
       { method: 'setEnabled', invocation: { kind: 'direct' } },
+      { method: 'availableBundles', invocation: { kind: 'direct' } },
+      { method: 'install', invocation: { kind: 'direct' } },
+      { method: 'uninstall', invocation: { kind: 'direct' } },
     ])
   })
 
@@ -116,5 +124,162 @@ describe('PluginInventoryGateway', () => {
 
     await ctx.loader.remove(pendingId)
     expect(inventory.list().entries.some(entry => entry.entryId === pendingId)).toBe(false)
+  })
+
+  it('availableBundles reports installed state from the profile manifest', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    contexts.push(ctx)
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'dsh-profile-test',
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-image-recognition-bundle'] } },
+    }))
+    try {
+      const snapshot = inventory.availableBundles()
+      expect(snapshot.available).toEqual([
+        { name: '@deepseek-ai/dsh-image-recognition-bundle', installed: true },
+      ])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('install requires an install anchor and gating for registry specs', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    try {
+      expect(() => inventory.install({ type: 'bundle', name: 'x' })).toThrow(/install anchor is unavailable/)
+      ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/not permitted/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('uninstall removes a bundle from the profile manifest', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'dsh-profile-test',
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-image-recognition-bundle'] } },
+    }))
+    try {
+      expect(inventory.uninstall('@deepseek-ai/dsh-image-recognition-bundle').restartRequired).toBe(true)
+      expect(inventory.availableBundles().available[0]!.installed).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('composes an offline bundle when the anchor is available', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    mkdirSync(join(dir, 'node_modules', 'b'), { recursive: true })
+    writeFileSync(join(dir, 'node_modules', 'b', 'package.json'), JSON.stringify({ name: 'b', dsh: { bundle: { patch: './cordis.patch.yml' } } }))
+    writeFileSync(join(dir, 'node_modules', 'b', 'cordis.patch.yml'), '[]\n')
+    ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+    try {
+      inventory.install({ type: 'bundle', name: 'b' })
+      expect(readProfileManifest('dsh', dir).dsh?.profile?.bundles).toEqual(['b'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('installs a registry spec via bundled pnpm when permitted', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    const fakePnpm = join(dir, 'pnpm.cjs')
+    writeFileSync(fakePnpm, 'process.exit(0)\n')
+    process.env.DSH_PNPM = fakePnpm
+    try {
+      ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+      ctx.provide('dshAllowPluginInstall', true)
+      expect(inventory.install({ type: 'registry', spec: 'some-pkg' }).restartRequired).toBe(true)
+    } finally {
+      delete process.env.DSH_PNPM
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('fails loud without a profile directory', async () => {
+    const { inventory } = await harness()
+    expect(() => inventory.availableBundles()).toThrow(/profile directory/)
+  })
+
+  it('treats a missing profile manifest as no installed bundles', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    try {
+      expect(inventory.availableBundles().available[0]!.installed).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('setEnabled fails loud for an unknown entry', async () => {
+    const { inventory } = await harness()
+    await expect(inventory.setEnabled('missing' as PluginEntryId, false)).rejects.toThrow(/cannot resolve entry missing/)
+  })
+
+  it('setEnabled persists the override when anchored to a profile directory', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    try {
+      const id = await ctx.loader.create({ name: 'cordis:user-toggleable' }) as PluginEntryId
+      await inventory.setEnabled(id, false)
+      expect(readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')).toContain('disabled: true')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('setEnabled reverts an enable whose fiber cannot activate', async () => {
+    const { ctx, inventory } = await harness()
+    const id = await ctx.loader.create({ name: 'cordis:pending' }) as PluginEntryId
+    await expect(inventory.setEnabled(id, true)).rejects.toThrow(/could not start/)
+    expect(inventory.list().entries.find(entry => entry.entryId === id)?.enabled).toBe(false)
+  })
+
+  it('registry install fails loud when bundled pnpm is absent', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-test', dsh: { profile: { bundles: [] } } }))
+    delete process.env.DSH_PNPM
+    try {
+      ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+      ctx.provide('dshAllowPluginInstall', true)
+      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/bundled pnpm is unavailable/)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('registry install fails loud when the profile manifest is missing', async () => {
+    const { ctx, inventory } = await harness()
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-inv-'))
+    ctx.baseUrl = pathToFileURL(dir + '/').href
+    const fakePnpm = join(dir, 'pnpm.cjs')
+    writeFileSync(fakePnpm, 'process.exit(0)\n')
+    process.env.DSH_PNPM = fakePnpm
+    try {
+      ctx.provide('dshInstallAnchor', join(dir, 'package.json'))
+      ctx.provide('dshAllowPluginInstall', true)
+      expect(() => inventory.install({ type: 'registry', spec: 'x' })).toThrow(/failed to read profile manifest/)
+    } finally {
+      delete process.env.DSH_PNPM
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

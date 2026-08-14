@@ -266,6 +266,56 @@
   white-space: nowrap;
 }
 
+.install {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--dsh-border);
+}
+
+.install h3 {
+  margin: 0 0 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.installList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.installRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.installName {
+  overflow-wrap: anywhere;
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+}
+
+.installAction {
+  flex: none;
+}
+
+.installRestart {
+  margin: 0 0 0.5rem;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.installError {
+  margin: 0 0 0.5rem;
+  color: var(--dsw-alias-danger-text);
+  font-size: 12px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .chevron {
     transition: transform 140ms var(--ds-ease-in-out);

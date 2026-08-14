@@ -24,6 +24,12 @@ export const zh = {
   disable: '停用',
   toggling: '切换中…',
   required: '应用必需插件，不可切换',
+  available: '可安装插件',
+  install: '安装',
+  uninstall: '卸载',
+  installing: '处理中…',
+  restartRequired: '已应用，重启后生效',
+  installFailed: '安装失败',
 } satisfies Record<string, string>
 
 /** Plugin inventory locale key union. */
@@ -53,4 +59,10 @@ export const en = {
   disable: 'Disable',
   toggling: 'Toggling…',
   required: 'Required by the app; cannot be toggled',
+  available: 'Installable plugins',
+  install: 'Install',
+  uninstall: 'Uninstall',
+  installing: 'Working…',
+  restartRequired: 'Applied; restart to activate',
+  installFailed: 'Install failed',
 } satisfies Record<PluginInventoryLocaleKey, string>

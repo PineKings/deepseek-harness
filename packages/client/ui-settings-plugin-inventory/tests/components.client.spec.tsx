@@ -13,10 +13,18 @@ afterEach(cleanup)
 type Snapshot = Awaited<ReturnType<PluginInventorySettingsTabInjected['list']>>
 const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventorySettingsTabProps['t']
 
-function props(list: PluginInventorySettingsTabInjected['list']): PluginInventorySettingsTabProps {
+function props(
+  list: PluginInventorySettingsTabInjected['list'],
+  bundles: PluginInventorySettingsTabInjected['availableBundles'] = async () => ({ available: [] }),
+  install: PluginInventorySettingsTabInjected['install'] = async () => ({ ok: true as const, restartRequired: true }),
+  uninstall: PluginInventorySettingsTabInjected['uninstall'] = async () => ({ ok: true as const, restartRequired: true }),
+): PluginInventorySettingsTabProps {
   return {
     t,
     list,
+    availableBundles: bundles,
+    install,
+    uninstall,
   } as PluginInventorySettingsTabProps
 }
 
@@ -152,5 +160,30 @@ describe('PluginInventorySettingsTab', () => {
     const pendingFailure = render(<PluginInventorySettingsTab {...props(() => deferredFailure.promise)} />)
     pendingFailure.unmount()
     await act(async () => { deferredFailure.reject(new Error('late failure')) })
+  })
+
+  it('renders the installable bundles with install and uninstall actions', async () => {
+    const install = vi.fn<PluginInventorySettingsTabInjected['install']>(async () => ({ ok: true, restartRequired: true }))
+    const uninstall = vi.fn<PluginInventorySettingsTabInjected['uninstall']>(async () => ({ ok: true, restartRequired: true }))
+    const bundles: PluginInventorySettingsTabInjected['availableBundles'] = async () => ({
+      available: [
+        { name: '@deepseek-ai/dsh-new-bundle', installed: false },
+        { name: '@deepseek-ai/dsh-installed-bundle', installed: true },
+      ],
+    })
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, bundles, install, uninstall)} />)
+
+    expect(await screen.findByText(en.available)).toBeTruthy()
+    expect(screen.getByText('@deepseek-ai/dsh-new-bundle')).toBeTruthy()
+    expect(screen.getByText('@deepseek-ai/dsh-installed-bundle')).toBeTruthy()
+
+    // Install a not-installed bundle.
+    fireEvent.click(screen.getByRole('button', { name: en.install }))
+    expect(install).toHaveBeenCalledWith({ type: 'bundle', name: '@deepseek-ai/dsh-new-bundle' })
+    expect(await screen.findByText(en.restartRequired)).toBeTruthy()
+
+    // Uninstall an installed bundle.
+    fireEvent.click(screen.getByRole('button', { name: en.uninstall }))
+    expect(uninstall).toHaveBeenCalledWith('@deepseek-ai/dsh-installed-bundle')
   })
 })

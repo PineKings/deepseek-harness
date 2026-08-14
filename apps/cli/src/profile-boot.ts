@@ -250,6 +250,11 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
     // Before any config-tree entry mounts, so plugins resolve all launch-time
     // environment values from the same immutable provenance snapshot.
     hostCtx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, options.environment)
+    // Plugin install facts: the installation anchor for resolving bundles, and
+    // whether registry (pnpm) install is permitted. Both default off; the
+    // desktop boot opts into install via DSH_ALLOW_PLUGIN_INSTALL.
+    hostCtx.provide('dshInstallAnchor', INSTALL_ANCHOR)
+    hostCtx.provide('dshAllowPluginInstall', process.env.DSH_ALLOW_PLUGIN_INSTALL === '1')
     // The command line and bounded exit request are launcher facts available
     // to every app plugin that injects the argument snapshot.
     provideCmdline(hostCtx, {

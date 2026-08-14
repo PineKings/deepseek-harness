@@ -355,6 +355,76 @@ export function resolveBundleDir(
 }
 
 /**
+ * Whether a resolved dependency package declares a profile patch, i.e. is a
+ * bundle. An unresolvable package is treated as plain (pnpm may have reported
+ * success before the package is actually installable).
+ * @param binName - the diagnostic prefix on thrown errors.
+ * @param packageName - the dependency's package name.
+ * @param profileDir - the profile directory (resolution anchor).
+ * @param installAnchor - absolute path of a file inside the dsh app package.
+ * @returns true when the package manifest declares `dsh.bundle`.
+ */
+export function isBundlePackage(
+  binName: string, packageName: string, profileDir: string, installAnchor: string,
+): boolean {
+  let dir: string
+  try {
+    dir = resolveBundleDir(binName, packageName, installAnchor, profileDir)
+  } catch {
+    return false
+  }
+  return readProfileManifest(binName, dir).dsh?.bundle?.patch !== undefined
+}
+
+/**
+ * Reconcile `dsh.profile.bundles` against the installed state after a package
+ * manager run: pnpm has written the real installed names and materialized the
+ * packages. A dependency that resolves to a `dsh.bundle`-declaring package
+ * joins the layer stack (appended in dependency order); a dependency-listed
+ * name that no longer does leaves it. In-box template bundles are not
+ * dependencies and are never touched. Writes the manifest only when the list
+ * changed.
+ * @param binName - the diagnostic prefix on thrown errors.
+ * @param before - the manifest read before the package manager ran.
+ * @param profileDir - the profile directory.
+ * @param installAnchor - absolute path of a file inside the dsh app package.
+ */
+export function reconcileProfileBundles(
+  binName: string, before: ProfileManifest, profileDir: string, installAnchor: string,
+): void {
+  const after = readProfileManifest(binName, profileDir)
+  const beforeDeps = new Set(Object.keys(before.dependencies ?? {}))
+  const dependencies = Object.keys(after.dependencies ?? {})
+  const plugins = after.dsh?.profile?.bundles ?? []
+  let changed = false
+  for (const packageName of dependencies) {
+    const isBundle = isBundlePackage(binName, packageName, profileDir, installAnchor)
+    if (isBundle && !plugins.includes(packageName)) {
+      plugins.push(packageName)
+      changed = true
+    } else if (!isBundle && !beforeDeps.has(packageName)) {
+      process.stderr.write(
+        `${binName}: warning: ${packageName} declares no dsh.bundle — installed as a plain dependency, not a profile layer `
+        + '(a later update that gains one activates it automatically)\n',
+      )
+    }
+  }
+  const dependencySet = new Set(dependencies)
+  for (const packageName of [...plugins]) {
+    const wasDependency = beforeDeps.has(packageName) || dependencySet.has(packageName)
+    const stillBundle = dependencySet.has(packageName) && isBundlePackage(binName, packageName, profileDir, installAnchor)
+    if (wasDependency && !stillBundle) {
+      plugins.splice(plugins.indexOf(packageName), 1)
+      changed = true
+    }
+  }
+  if (changed) {
+    after.dsh = { ...after.dsh, profile: { ...after.dsh?.profile, bundles: plugins } }
+    writeProfileManifest(profileDir, after)
+  }
+}
+
+/**
  * Load a profile: resolve every `dsh.profile.bundles` entry to its patch
  * layer and parse the profile's own patch file. A listed bundle without a
  * `dsh.bundle` manifest fails loud — naming a bundle-less package as a layer

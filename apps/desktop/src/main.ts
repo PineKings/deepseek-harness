@@ -177,7 +177,8 @@ function startSession(): void {
     // Run the harness from its own root so relative path resolution is stable.
     cwd: harness,
     stdio: ['ignore', 'pipe', 'inherit'],
-    env: { ...process.env, DSH_TELEMETRY_DISABLED: '1' },
+    // The desktop is the trusted surface that opts into plugin install.
+    env: { ...process.env, DSH_TELEMETRY_DISABLED: '1', DSH_ALLOW_PLUGIN_INSTALL: '1' },
   })
   let settled = false
   let buffered = ''

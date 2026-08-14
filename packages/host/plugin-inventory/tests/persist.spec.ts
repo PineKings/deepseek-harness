@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -34,5 +34,22 @@ describe('persistPluginDisabled', () => {
     const text = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
     expect(text.match(/image-recognition-http/g)).toHaveLength(1)
     expect(text).not.toContain('disabled: true')
+  })
+
+  it('creates the patch file when it does not yet exist', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-plugin-persist-'))
+    persistPluginDisabled(dir, 'image-recognition-http', true)
+    const text = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
+    expect(text).toContain('image-recognition-http')
+    expect(text).toContain('disabled: true')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('treats a non-array patch file as empty', () => {
+    const dir = profile('not-an-array\n')
+    persistPluginDisabled(dir, 'image-recognition-http', true)
+    const text = readFileSync(join(dir, 'cordis.patch.yml'), 'utf8')
+    expect(text).toContain('image-recognition-http')
+    expect(text).not.toContain('not-an-array')
   })
 })

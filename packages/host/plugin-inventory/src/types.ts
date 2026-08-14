@@ -28,3 +28,28 @@ export interface PluginInventoryEntry {
 export interface PluginInventorySnapshot {
   readonly entries: readonly PluginInventoryEntry[]
 }
+
+/** One optional bundle in the offline-installable catalog. */
+export interface AvailableBundle {
+  /** The bundle's npm package name. */
+  readonly name: string
+  /** Whether the bundle is already composed in the profile. */
+  readonly installed: boolean
+}
+
+/** Catalog snapshot returned by the available-bundles Remote. */
+export interface AvailableBundlesSnapshot {
+  readonly available: readonly AvailableBundle[]
+}
+
+/** What a plugin-install request targets. */
+export type InstallSpec =
+  | { readonly type: 'bundle'; readonly name: string }
+  | { readonly type: 'registry'; readonly spec: string }
+
+/** Result of an install/uninstall request. */
+export interface InstallResult {
+  readonly ok: true
+  /** Whether the app must restart for the change to take effect. */
+  readonly restartRequired: boolean
+}

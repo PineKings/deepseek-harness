@@ -40,7 +40,30 @@ export function apply(ctx: ClientContext): void {
       throw new Error(`pluginInventory.setEnabled failed: ${result.error.code}: ${result.error.message}`)
     }
   }
-  const injected = (): PluginInventorySettingsTabInjected => ({ list, setEnabled })
+  const availableBundles: PluginInventorySettingsTabInjected['availableBundles'] = async () => {
+    const result = await ctx.remote.pluginInventory.availableBundles()
+    if (!result.ok) {
+      throw new Error(`pluginInventory.availableBundles failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const install: PluginInventorySettingsTabInjected['install'] = async (spec) => {
+    const result = await ctx.remote.pluginInventory.install(spec)
+    if (!result.ok) {
+      throw new Error(`pluginInventory.install failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const uninstall: PluginInventorySettingsTabInjected['uninstall'] = async (name) => {
+    const result = await ctx.remote.pluginInventory.uninstall(name)
+    if (!result.ok) {
+      throw new Error(`pluginInventory.uninstall failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const injected = (): PluginInventorySettingsTabInjected => ({
+    list, setEnabled, availableBundles, install, uninstall,
+  })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',

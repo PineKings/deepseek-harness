@@ -43,4 +43,15 @@ if (!existsSync(nodeBin)) throw new Error(`node executable not found: ${nodeBin}
 cpSync(nodeBin, join(out, 'bin/node'))
 chmodSync(join(out, 'bin/node'), 0o755)
 
+// Vendor pnpm so the packaged app can install third-party plugins without pnpm
+// on the target machine. npm ships with Node, so use it on the build machine
+// (which has network); a failure only disables registry install, never the
+// offline bundle install, so warn rather than abort.
+try {
+  execFileSync('npm', ['install', '--prefix', join(out, 'pnpm'), 'pnpm@11.7.0'], { stdio: 'pipe' })
+  console.log('vendored pnpm into harness')
+} catch {
+  console.warn('could not vendor pnpm; registry plugin install will be unavailable in the packaged app')
+}
+
 console.log(`assembled self-contained harness at ${out}`)
