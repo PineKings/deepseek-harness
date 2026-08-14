@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import type { InstallResult, InstallSpec, PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
 import {
+  Button,
   IconChevronDownOutline14,
   IconSearchOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -197,27 +198,29 @@ export function PluginInventorySettingsTab({
               ) : null}
             </dl>
             {!entry.enabled ? (
-              <button
+              <Button
                 className={css.toggle}
-                type="button"
+                variant="outline"
+                size="sm"
                 disabled={busy === entry.entryId}
                 aria-busy={busy === entry.entryId || undefined}
                 onClick={() => { toggle(entry.entryId, true) }}
               >
                 {busy === entry.entryId ? t('toggling') : t('enable')}
-              </button>
+              </Button>
             ) : entry.protected ? (
               <p className={css.required}>{t('required')}</p>
             ) : (
-              <button
+              <Button
                 className={css.toggle}
-                type="button"
+                variant="outline"
+                size="sm"
                 disabled={busy === entry.entryId}
                 aria-busy={busy === entry.entryId || undefined}
                 onClick={() => { toggle(entry.entryId, false) }}
               >
                 {busy === entry.entryId ? t('toggling') : t('disable')}
-              </button>
+              </Button>
             )}
           </div>
         ) : null}
@@ -248,14 +251,14 @@ export function PluginInventorySettingsTab({
                 onChange={(event) => { setSpec(event.currentTarget.value) }}
                 onKeyDown={(event) => { if (event.key === 'Enter') installRegistry() }}
               />
-              <button
-                type="button"
+              <Button
                 className={css.installAction}
+                variant="primary"
                 disabled={installBusy || spec.trim().length === 0}
                 onClick={installRegistry}
               >
                 {installBusy ? t('installing') : t('install')}
-              </button>
+              </Button>
             </div>
             {installNote !== null
               ? <p className={installNote.kind === 'error' ? css.installError : css.installRestart} role="status">{installNote.text}</p>

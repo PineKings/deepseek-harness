@@ -25,7 +25,7 @@ export const zh = {
   toggling: '切换中…',
   required: '应用必需插件，不可切换',
   installPlugin: '安装插件',
-  installSpec: '输入插件包名，如 @scope/plugin',
+  installSpec: '输入插件包名，目前只支持已发布npm的包；如 @scope/plugin',
   install: '安装',
   installing: '安装中…',
   restartRequired: '已安装，重启后生效',

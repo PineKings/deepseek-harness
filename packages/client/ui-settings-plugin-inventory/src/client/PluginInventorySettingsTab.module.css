@@ -57,12 +57,14 @@
   pointer-events: none;
 }
 
-.search input {
+/* The catalog search and the install field share the same field geometry. */
+.search input,
+.installInput {
   width: 100%;
   height: 36px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
-  padding: 0 34px 0 36px;
+  padding: 0 12px;
   outline: none;
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary);
@@ -70,11 +72,18 @@
   font-size: 13px;
 }
 
-.search input::placeholder {
+/* The search field reserves leading space for its absolutely-placed icon. */
+.search input {
+  padding: 0 34px 0 36px;
+}
+
+.search input::placeholder,
+.installInput::placeholder {
   color: var(--dsw-alias-label-tertiary);
 }
 
-.search input:focus-visible {
+.search input:focus-visible,
+.installInput:focus-visible {
   border-color: var(--dsw-alias-state-business-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);
 }
