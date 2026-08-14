@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import type { GeneralSectionComponentProps } from '../src/client/GeneralSection.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
+import { AboutSection } from '../src/client/AboutSection.tsx'
+import type { AboutSectionComponentProps } from '../src/client/AboutSection.tsx'
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import type { TriggerContentProps } from '../src/client/chrome.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
@@ -55,6 +57,28 @@ describe('GeneralSection', () => {
     const { renderSlot } = mount()
     expect(renderSlot).toHaveBeenCalledWith('settings.general.item', {})
     expect(screen.getByTestId('slot-settings.general.item')).toBeTruthy()
+  })
+})
+
+describe('AboutSection', () => {
+  const aboutProps: AboutSectionComponentProps = { close: vi.fn(), t } as never
+
+  it('renders the company copy and the current version', () => {
+    render(<AboutSection {...aboutProps} />)
+    expect(screen.getByText('PineSound')).toBeTruthy()
+    expect(screen.getByText('AI audio creation platform')).toBeTruthy()
+    expect(screen.getByText(en['about.currentVersion'])).toBeTruthy()
+    expect(screen.getByText('0.1.0-rc.5')).toBeTruthy()
+    expect(screen.getByRole('button', { name: en['about.checkUpdates'] })).toBeTruthy()
+  })
+
+  it('checks for updates and reports the latest version', async () => {
+    render(<AboutSection {...aboutProps} />)
+    fireEvent.click(screen.getByRole('button', { name: en['about.checkUpdates'] }))
+    expect(screen.getByText(en['about.checking'])).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toContain(en['about.upToDate'])
+    })
   })
 })
 

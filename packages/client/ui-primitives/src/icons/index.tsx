@@ -856,6 +856,20 @@ export const IconQuestionOutline14 = ({ size = 14, className }: IconProps) => (
   </svg>
 )
 
+/** ic_ds_info_outline_16: ring + 'i' glyph, used for the About settings section. */
+export const IconInfoOutline16 = ({ size = 16, className }: IconProps) => (
+  <svg width={size} height={size} className={className} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M8 15.2C4.024 15.2 0.8 11.976 0.8 8C0.8 4.024 4.024 0.8 8 0.8C11.976 0.8 15.2 4.024 15.2 8C15.2 11.976 11.976 15.2 8 15.2ZM8 2.4C4.908 2.4 2.4 4.908 2.4 8C2.4 11.092 4.908 13.6 8 13.6C11.092 13.6 13.6 11.092 13.6 8C13.6 4.908 11.092 2.4 8 2.4Z"
+      fill="currentColor"
+    />
+    <path d="M7.2 6.8H8.8V11.4H7.2V6.8Z" fill="currentColor" />
+    <path d="M8 4.9C7.59 4.9 7.25 5.24 7.25 5.65C7.25 6.06 7.59 6.4 8 6.4C8.41 6.4 8.75 6.06 8.75 5.65C8.75 5.24 8.41 4.9 8 4.9Z" fill="currentColor" />
+  </svg>
+)
+
 /** ic_ds_archive_outline_20 (figma extract): lidded box + label slot. The export's
  *  0.11px stroke ring around the box contour is dropped — it restates the same
  *  contour in the same ink, which currentColor already carries. */
