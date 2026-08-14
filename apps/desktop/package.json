@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-desktop",
-  "description": "Electron desktop shell over the dsh harness: spawns the `web` profile on loopback and opens the GUI in a native window.",
+  "description": "DeepSeek Harness Desktop ,由 PineSound 基于 deepseek-harness 项目构建",
   "version": "0.1.0-rc.5",
   "private": true,
   "type": "module",
