@@ -5,10 +5,10 @@ capability seam (`@deepseek-ai/dsh-image-recognition`), the configurable HTTP
 provider (`@deepseek-ai/dsh-image-recognition-http`), and the model-facing
 consumer (`@deepseek-ai/dsh-tool-image-recognition`).
 
-The bundle is **not** in any default profile's bundles list. Enable it per
-profile by adding this package to the profile's `dsh.profile.bundles` (or
-`dsh plugin --profile <name> add @deepseek-ai/dsh-image-recognition-bundle`),
-then configure the endpoint and key in the Plugins settings page
+The `web` profile template mounts this bundle by default. A non-web profile opts
+in by adding this package to its `dsh.profile.bundles` (or
+`dsh plugin --profile <name> add @deepseek-ai/dsh-image-recognition-bundle`).
+Then configure the endpoint, key, and model in the Plugins settings page
 (`image-recognition` card).
 
 ## Known Limitations and Deferred Work
