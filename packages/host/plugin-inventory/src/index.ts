@@ -89,11 +89,19 @@ export class PluginInventoryGateway extends TypertRemoteService {
     if (entry === undefined) {
       throw new Error(`plugin entry ${String(entryId)} not found`)
     }
-    if (isRequiredPlugin(entry.options.name)) {
-      throw new Error(`plugin ${String(entryId)} is required by the application and cannot be toggled`)
+    // Disabling a required system plugin tears the process down; refuse it.
+    // Re-enabling a disabled plugin is what this surface is for.
+    if (!enabled && isRequiredPlugin(entry.options.name)) {
+      throw new Error(`plugin ${String(entryId)} is required by the application and cannot be disabled`)
     }
     const rowId = entry.options.id
     await this.ctx.loader.update(entryId, { disabled: !enabled })
+    // An enable whose injected services are unavailable would fail the next
+    // boot (the dependent never becomes active). Revert and refuse loudly.
+    if (enabled && entry.fiber !== undefined && entry.fiber.state !== FIBER_STATE.ACTIVE) {
+      await this.ctx.loader.update(entryId, { disabled: true })
+      throw new Error(`plugin ${String(entryId)} could not start; its dependencies are unavailable`)
+    }
     if (this.ctx.baseUrl !== undefined) {
       persistPluginDisabled(fileURLToPath(this.ctx.baseUrl), rowId, !enabled)
     }

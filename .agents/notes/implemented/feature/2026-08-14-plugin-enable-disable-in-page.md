@@ -38,13 +38,15 @@ The list is grouped: toggleable plugins carry the button in the main list, while
 the required system plugins sit in a separate collapsible "system plugins"
 section with no controls.
 
-**Guard:** every entry carries a `protected` flag. The rule is default-protect —
-disabling a plugin that another plugin injects breaks the dependent, and
-enabling one whose service is unavailable fails the boot (both surfaced as
-`dsh-tool-ralph: pending (waiting for service: workflowEngine)` after a bad
-toggle). So `setEnabled` refuses and the UI hides the toggle for every shipped
-plugin; only plugins added through an opt-in bundle (`USER_TOGGLEABLE_PLUGINS`
-in `src/required.ts`) are toggleable.
+**Guard:** every entry carries a `protected` flag. Disabling a plugin that
+another plugin injects breaks the dependent, and enabling one whose service is
+unavailable fails the boot (both surfaced as `dsh-tool-ralph: pending (waiting
+for service: workflowEngine)` after a bad toggle). So `setEnabled` refuses to
+**disable** a required plugin, and after **enabling** a plugin it verifies the
+fiber became active (reverting a dependency-missing enable). The plugin-list tab
+groups by current state: disabled plugins sit in the main list with an enable
+button, while enabled plugins sit in a collapsible system section (a user-added
+enabled plugin keeps a disable toggle, a required one shows none).
 
 ## Persistence caveat
 

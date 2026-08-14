@@ -6,7 +6,7 @@
 
 阶段为 `pending`、`loading`、`active`、`failed` 或 `unloading`；条目没有存活的根 Fiber 时则为 `null`。该快照刻意只表示调用当下：Loader 仍是唯一的生命周期权威，本包不拥有缓存、历史、来源模型或事件流。`setEnabled` 通过 `ctx.loader.update` 实时切换单条条目，并把显式 `disabled` 覆盖写进 profile 的用户补丁层，使选择在重启后保留（bundle 默认禁用的行需要 `disabled: false` 覆盖才能保持启用）。
 
-每条条目带 `protected` 标记。守卫默认保护：所有随包插件都是应用必需（停用一个被其他插件注入的插件会破坏依赖者；启用一个服务不可用的插件会导致启动失败），所以 `setEnabled` 拒绝它们、UI 隐藏开关。只有部署通过 opt-in bundle 添加的插件（`src/required.ts` 的 `USER_TOGGLEABLE_PLUGINS`）可切换。Web 插件列表 tab 据此分组：可切换插件带启用/停用按钮，必需的系统插件放在一个可折叠的"系统插件"区，无任何开关。公开 payload 类型位于 `./types`，Typert 生成由 `./typert` 与 `./remote` 导出的 Host 和 Client Remote 产物。
+每条条目带 `protected` 标记。守卫默认保护：所有随包插件都是应用必需（停用一个被其他插件注入的插件会破坏依赖者；启用一个服务不可用的插件会导致启动失败），所以 `setEnabled` 拒绝它们、UI 隐藏开关。只有部署通过 opt-in bundle 添加的插件（`src/required.ts` 的 `USER_TOGGLEABLE_PLUGINS`）可切换。Web 插件列表 tab 按当前状态分组：已停用插件在主列表带"启用"按钮（可重新启用），已启用插件放在可折叠的"系统插件"区——用户自加的已启用插件仍保留"停用"按钮，必需插件则无任何开关。公开 payload 类型位于 `./types`，Typert 生成由 `./typert` 与 `./remote` 导出的 Host 和 Client Remote 产物。
 
 该服务仅供 Remote 使用，刻意不声明同进程 Cordis `Context` merge。Client 包通过显式的 [`api-remotes`](../../api/remotes/README.md) 组合消费它，而不导入 Host 实现。
 

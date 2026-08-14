@@ -98,10 +98,11 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
       : [],
     [normalizedQuery, state],
   )
-  // User-added (opt-in bundle) plugins are toggleable; the rest are required
-  // system plugins shown in a separate collapsible section without toggles.
-  const userEntries = filteredEntries.filter(entry => !entry.protected)
-  const systemEntries = filteredEntries.filter(entry => entry.protected)
+  // Disabled plugins sit in the main list with an enable toggle so they can be
+  // re-enabled; enabled plugins are grouped into a collapsible system section
+  // (a user-added enabled plugin still carries a disable toggle).
+  const userEntries = filteredEntries.filter(entry => !entry.enabled)
+  const systemEntries = filteredEntries.filter(entry => entry.enabled)
 
   useEffect(() => {
     if (expanded !== null && !filteredEntries.some(entry => entry.entryId === expanded)) {
@@ -170,7 +171,17 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
                 </div>
               ) : null}
             </dl>
-            {entry.protected ? (
+            {!entry.enabled ? (
+              <button
+                className={css.toggle}
+                type="button"
+                disabled={busy === entry.entryId}
+                aria-busy={busy === entry.entryId || undefined}
+                onClick={() => { toggle(entry.entryId, true) }}
+              >
+                {busy === entry.entryId ? t('toggling') : t('enable')}
+              </button>
+            ) : entry.protected ? (
               <p className={css.required}>{t('required')}</p>
             ) : (
               <button
@@ -178,9 +189,9 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
                 type="button"
                 disabled={busy === entry.entryId}
                 aria-busy={busy === entry.entryId || undefined}
-                onClick={() => { toggle(entry.entryId, !entry.enabled) }}
+                onClick={() => { toggle(entry.entryId, false) }}
               >
-                {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
+                {busy === entry.entryId ? t('toggling') : t('disable')}
               </button>
             )}
           </div>
