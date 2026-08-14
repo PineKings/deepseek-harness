@@ -122,6 +122,29 @@ The bundled harness is multi-GB uncompressed (≈2 GB), dominated by
 ~1 GB. This is the inherent footprint of shipping the full harness runtime
 standalone, and is the accepted trade-off for a zero-external-dependency app.
 
+## Updates (manual download)
+
+The app is **not code-signed**, so updates are a manual-download flow rather
+than a silent swap. On startup (and hourly), and from the Settings → About
+"check for updates" button (through a preload bridge), the main process fetches
+the OSS manifest (`updates/releases.json`, `DSH_UPDATE_URL` overrides) and
+compares the latest version against `app.getVersion()`. When a newer release
+exists it prompts the user to open the per-platform installer URL.
+
+To publish a release:
+
+```sh
+pnpm --filter @deepseek-ai/dsh-desktop run build:harness
+pnpm desktop:pack                        # produces .dmg (mac) / .nsis .exe (win)
+DSH_RELEASE_NOTES="…" pnpm --filter @deepseek-ai/dsh-desktop run generate-release-json
+```
+
+`scripts/generate-release-json.mjs` writes `dist/releases.json` from the built
+installers (`DSH_UPDATE_BASE` defaults to `https://deepseek.pinesound.cn/updates/`).
+Upload `releases.json` plus the `.dmg`/`.exe` to the OSS `updates/` folder, and
+the `deepseek-harness-web` `download/` page renders the same manifest. Building
+the Windows `.exe` on macOS needs wine (or build on a Windows host).
+
 ## Notes
 
 - `asar: false` and `npmRebuild: false` are deliberate (see

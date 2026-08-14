@@ -17,6 +17,9 @@ export const zh = {
   'about.checkUpdates': '检查更新',
   'about.checking': '正在检查更新…',
   'about.upToDate': '已是最新版本',
+  'about.updateAvailable': '发现新版本',
+  'about.download': '去下载',
+  'about.updateCheckFailed': '检查更新失败',
 } satisfies Record<string, string>
 
 /** The settings namespace key union. */
@@ -39,4 +42,7 @@ export const en = {
   'about.checkUpdates': 'Check for updates',
   'about.checking': 'Checking for updates…',
   'about.upToDate': 'You are on the latest version',
+  'about.updateAvailable': 'A new version is available',
+  'about.download': 'Download',
+  'about.updateCheckFailed': 'Could not check for updates',
 } satisfies Record<SettingsKey, string>

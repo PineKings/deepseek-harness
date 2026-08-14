@@ -17,17 +17,38 @@ import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { app, dialog, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
+import { app, dialog, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 
 import { LOOPBACK_HOST, parseReadyPort } from './ready-port.ts'
+import type { UpdateCheckResult } from './preload.ts'
 
 const require = createRequire(import.meta.url)
+
+/**
+ * URL of the release manifest hosted on OSS. Override per deployment with
+ * DSH_UPDATE_URL. The manifest (releases.json) carries the latest version,
+ * release notes, and per-platform installer URLs.
+ */
+const UPDATE_MANIFEST_URL = process.env.DSH_UPDATE_URL ?? 'https://deepseek.pinesound.cn/updates/releases.json'
+
+/** The renderer's update-check IPC channel. */
+const UPDATE_CHANNEL = 'check-update'
+
+/** The release manifest published on OSS (`updates/releases.json`). */
+interface ReleaseManifest {
+  readonly latest: { readonly version: string }
+  readonly releaseNotes?: string
+  readonly platforms: Partial<Record<'mac-arm64' | 'mac-x64' | 'win-x64', { readonly url: string }>>
+}
 
 /** User-facing product name (the npm name is the scoped package id). */
 const PRODUCT_NAME = 'DeepSeek Harness'
 
 /** Window icon: the branded PNG in build/, resolved from this ES module's URL. */
 const APP_ICON = fileURLToPath(new URL('../../build/icon.png', import.meta.url))
+
+/** Renderer preload (compiled to lib/types/preload.js), resolved from this ES module's URL. */
+const PRELOAD = fileURLToPath(new URL('./preload.js', import.meta.url))
 
 /**
  * The self-contained harness runtime bundled into the packaged app by
@@ -118,6 +139,55 @@ function installAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+/**
+ * Compare two version strings for "newer". Versions are `0.1.0-rc.N`; the
+ * numeric `rc` suffix carries the order, so compare the trailing integer and
+ * fall back to a plain string compare for non-rc builds.
+ */
+function isNewer(latest: string, current: string): boolean {
+  const rc = (value: string): number => {
+    const match = /rc\.(\d+)$/.exec(value)
+    return match === null ? Number.NaN : Number(match[1])
+  }
+  const lrc = rc(latest)
+  const crc = rc(current)
+  if (Number.isFinite(lrc) && Number.isFinite(crc)) return lrc > crc
+  return latest !== current
+}
+
+/** The per-platform download URL from a release manifest. */
+function platformDownloadUrl(manifest: ReleaseManifest): string | undefined {
+  const key = process.platform === 'win32' ? 'win-x64' : process.arch === 'arm64' ? 'mac-arm64' : 'mac-x64'
+  return manifest.platforms[key]?.url
+}
+
+/**
+ * Fetch the release manifest and compare the latest version against the
+ * running app. Returns an update-available result (with the download URL) when
+ * a newer release exists; errors surface as `{ status: 'error' }` so the UI
+ * never crashes on a transient network miss.
+ * @returns the update-check result for the SPA and the startup prompt.
+ */
+async function checkForUpdate(): Promise<UpdateCheckResult> {
+  const current = app.getVersion()
+  try {
+    const response = await fetch(UPDATE_MANIFEST_URL)
+    if (!response.ok) throw new Error(`update manifest HTTP ${response.status}`)
+    const manifest = (await response.json()) as ReleaseManifest
+    const latest = manifest.latest.version
+    if (!isNewer(latest, current)) return { status: 'up-to-date', current }
+    return {
+      status: 'update-available',
+      current,
+      latest,
+      notes: manifest.releaseNotes,
+      url: platformDownloadUrl(manifest),
+    }
+  } catch (error) {
+    return { status: 'error', current, notes: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 /** Spawn's node executable: a bundled one when the app is packaged, else PATH. */
 function nodeExecutable(): string {
   const harness = harnessRoot()
@@ -144,10 +214,12 @@ function openWindow(url: string): BrowserWindow {
     // use the packaged .app icon from electron-builder's build/icon.png.
     ...(existsSync(APP_ICON) ? { icon: APP_ICON } : {}),
     webPreferences: {
-      // The UI is a remote SPA served by the harness; keep Node out of it.
+      // The UI is a remote SPA served by the harness; keep Node out of it. The
+      // preload exposes only the update-check bridge (no direct Node access).
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      preload: PRELOAD,
     },
   })
   void win.loadURL(url)
@@ -216,12 +288,36 @@ function startSession(): void {
 
 app.whenReady().then(() => {
   installAppMenu()
+  // The SPA's About "check for updates" button asks the main process.
+  ipcMain.handle(UPDATE_CHANNEL, () => checkForUpdate())
   startSession()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0 && session !== undefined) {
       session.window = openWindow(session.url)
     }
   })
+  // Manual-download update flow: check on startup (and hourly), and when a newer
+  // release exists prompt to open the installer URL. No signing, so the user
+  // downloads and installs by hand rather than an automatic swap.
+  const promptUpdate = async (): Promise<void> => {
+    const result = await checkForUpdate()
+    if (result.status !== 'update-available' || result.url === undefined) return
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      message: `发现新版本 v${result.latest}`,
+      detail: result.notes ?? '点击「去下载」获取最新安装包。',
+      buttons: ['去下载', '稍后'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (response === 0) shell.openExternal(result.url).catch(() => {})
+  }
+  const checkAt = (delayMs: number): void => {
+    setTimeout(() => { promptUpdate().catch(() => {}) }, delayMs)
+  }
+  checkAt(4000)
+  const checkTimer = setInterval(() => { promptUpdate().catch(() => {}) }, 60 * 60 * 1000)
+  app.on('will-quit', () => { clearInterval(checkTimer) })
 })
 
 app.on('window-all-closed', () => {

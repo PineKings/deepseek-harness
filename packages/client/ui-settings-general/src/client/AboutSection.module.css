@@ -70,3 +70,7 @@
   margin: 0;
   opacity: 0.75;
 }
+
+.download {
+  align-self: flex-start;
+}

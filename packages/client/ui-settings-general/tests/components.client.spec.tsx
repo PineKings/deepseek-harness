@@ -72,13 +72,30 @@ describe('AboutSection', () => {
     expect(screen.getByRole('button', { name: en['about.checkUpdates'] })).toBeTruthy()
   })
 
-  it('checks for updates and reports the latest version', async () => {
+  it('reports up-to-date on a web surface without the desktop bridge', async () => {
     render(<AboutSection {...aboutProps} />)
     fireEvent.click(screen.getByRole('button', { name: en['about.checkUpdates'] }))
-    expect(screen.getByText(en['about.checking'])).toBeTruthy()
     await waitFor(() => {
       expect(screen.getByRole('status').textContent).toContain(en['about.upToDate'])
     })
+  })
+
+  it('shows a download link when the bridge reports a newer version', async () => {
+    const checkUpdate = vi.fn(async () => ({
+      status: 'update-available' as const, current: '0.1.0-rc.5', latest: '0.1.0-rc.6',
+      notes: 'New release', url: 'https://example.com/app.dmg',
+    }))
+    ;(window as { dshApp?: unknown }).dshApp = { checkUpdate }
+    try {
+      render(<AboutSection {...aboutProps} />)
+      fireEvent.click(screen.getByRole('button', { name: en['about.checkUpdates'] }))
+      const status = await screen.findByRole('status')
+      expect(status.textContent).toContain(en['about.updateAvailable'])
+      expect(status.textContent).toContain('0.1.0-rc.6')
+      expect(screen.getByRole('link', { name: en['about.download'] }).getAttribute('href')).toBe('https://example.com/app.dmg')
+    } finally {
+      delete (window as { dshApp?: unknown }).dshApp
+    }
   })
 })
 
