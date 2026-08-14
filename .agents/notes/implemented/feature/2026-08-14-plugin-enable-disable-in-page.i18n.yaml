@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-14-plugin-enable-disable-in-page.md
-2026-08-14-plugin-enable-disable-in-page.md: 10560799d5543a3622e0a8d751012066ca36512a
-2026-08-14-plugin-enable-disable-in-page.zh.md: 988b9f8fad9216f358e39966767e2e0649715a43
+2026-08-14-plugin-enable-disable-in-page.md: b868a8e4f84357e944c184cb80d58ea40858f7b8
+2026-08-14-plugin-enable-disable-in-page.zh.md: c53187fd067f3e208e62ecc09d361548ba61bda1

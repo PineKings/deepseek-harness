@@ -70,6 +70,7 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
   const [expanded, setExpanded] = useState<PluginInventoryEntry['entryId'] | null>(null)
   const [state, setState] = useState<ViewState>({ status: 'loading' })
   const [busy, setBusy] = useState<PluginInventoryEntry['entryId'] | null>(null)
+  const [systemOpen, setSystemOpen] = useState(true)
 
   useEffect(() => {
     let current = true
@@ -97,6 +98,10 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
       : [],
     [normalizedQuery, state],
   )
+  // User-added (opt-in bundle) plugins are toggleable; the rest are required
+  // system plugins shown in a separate collapsible section without toggles.
+  const userEntries = filteredEntries.filter(entry => !entry.protected)
+  const systemEntries = filteredEntries.filter(entry => entry.protected)
 
   useEffect(() => {
     if (expanded !== null && !filteredEntries.some(entry => entry.entryId === expanded)) {
@@ -107,6 +112,81 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
   const retry = (): void => {
     setState({ status: 'loading' })
     setRequest(value => value + 1)
+  }
+
+  /** Render one inventory card; the toggle is hidden for protected system plugins. */
+  const card = (entry: PluginInventoryEntry): ReactNode => {
+    const status = phaseLabel(entry.fiberPhase, t)
+    const title = moduleShortName(entry.moduleName)
+    const configuration = t(entry.enabled ? 'enabledTag' : 'disabledTag')
+    const open = expanded === entry.entryId
+    const detailId = `${catalogId}-details-${encodeURIComponent(entry.entryId)}`
+    return (
+      <li
+        className={css.card}
+        key={entry.entryId}
+        data-plugin-entry={entry.entryId}
+        data-open={open ? 'true' : undefined}
+      >
+        <button
+          className={css.cardContent}
+          type="button"
+          aria-expanded={open}
+          aria-controls={detailId}
+          aria-label={entry.enabled ? `${title}, ${status}, ${configuration}` : `${title}, ${configuration}`}
+          onClick={() => {
+            setExpanded(current => current === entry.entryId ? null : entry.entryId)
+          }}
+        >
+          <strong className={css.cardTitle} title={entry.moduleName}>{title}</strong>
+          <span className={css.cardTrailing}>
+            {entry.enabled ? (
+              <span
+                className={css.statusDot}
+                data-phase={entry.fiberPhase ?? 'unobserved'}
+                role="img"
+                aria-label={status}
+                title={status}
+              />
+            ) : null}
+            <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
+              {configuration}
+            </span>
+            <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+          </span>
+        </button>
+        {open ? (
+          <div className={css.cardDetails} id={detailId}>
+            <code className={css.entryValue} data-loader-entry>{entry.entryId}</code>
+            <dl className={css.details}>
+              <div>
+                <dt>{t('configuration')}</dt>
+                <dd>{configuration}</dd>
+              </div>
+              {entry.enabled ? (
+                <div>
+                  <dt>{t('cordis')}</dt>
+                  <dd>{status}</dd>
+                </div>
+              ) : null}
+            </dl>
+            {entry.protected ? (
+              <p className={css.required}>{t('required')}</p>
+            ) : (
+              <button
+                className={css.toggle}
+                type="button"
+                disabled={busy === entry.entryId}
+                aria-busy={busy === entry.entryId || undefined}
+                onClick={() => { toggle(entry.entryId, !entry.enabled) }}
+              >
+                {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
+              </button>
+            )}
+          </div>
+        ) : null}
+      </li>
+    )
   }
 
   return (
@@ -139,82 +219,30 @@ export function PluginInventorySettingsTab({ list, setEnabled, t }: PluginInvent
           {state.snapshot.entries.length > 0 && filteredEntries.length === 0
             ? <p className={css.status}>{t('emptySearch')}</p>
             : null}
-          {filteredEntries.length > 0 ? (
+          {userEntries.length > 0 ? (
             <ul className={css.cards}>
-              {filteredEntries.map((entry) => {
-                const status = phaseLabel(entry.fiberPhase, t)
-                const title = moduleShortName(entry.moduleName)
-                const configuration = t(entry.enabled ? 'enabledTag' : 'disabledTag')
-                const open = expanded === entry.entryId
-                const detailId = `${catalogId}-details-${encodeURIComponent(entry.entryId)}`
-                return (
-                  <li
-                    className={css.card}
-                    key={entry.entryId}
-                    data-plugin-entry={entry.entryId}
-                    data-open={open ? 'true' : undefined}
-                  >
-                    <button
-                      className={css.cardContent}
-                      type="button"
-                      aria-expanded={open}
-                      aria-controls={detailId}
-                      aria-label={entry.enabled ? `${title}, ${status}, ${configuration}` : `${title}, ${configuration}`}
-                      onClick={() => {
-                        setExpanded(current => current === entry.entryId ? null : entry.entryId)
-                      }}
-                    >
-                      <strong className={css.cardTitle} title={entry.moduleName}>{title}</strong>
-                      <span className={css.cardTrailing}>
-                        {entry.enabled ? (
-                          <span
-                            className={css.statusDot}
-                            data-phase={entry.fiberPhase ?? 'unobserved'}
-                            role="img"
-                            aria-label={status}
-                            title={status}
-                          />
-                        ) : null}
-                        <span className={css.configTag} data-enabled={entry.enabled ? 'true' : 'false'}>
-                          {configuration}
-                        </span>
-                        <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
-                      </span>
-                    </button>
-                    {open ? (
-                      <div className={css.cardDetails} id={detailId}>
-                        <code className={css.entryValue} data-loader-entry>{entry.entryId}</code>
-                        <dl className={css.details}>
-                          <div>
-                            <dt>{t('configuration')}</dt>
-                            <dd>{configuration}</dd>
-                          </div>
-                          {entry.enabled ? (
-                            <div>
-                              <dt>{t('cordis')}</dt>
-                              <dd>{status}</dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                        {entry.protected ? (
-                          <p className={css.required}>{t('required')}</p>
-                        ) : (
-                          <button
-                            className={css.toggle}
-                            type="button"
-                            disabled={busy === entry.entryId}
-                            aria-busy={busy === entry.entryId || undefined}
-                            onClick={() => { toggle(entry.entryId, !entry.enabled) }}
-                          >
-                            {busy === entry.entryId ? t('toggling') : entry.enabled ? t('disable') : t('enable')}
-                          </button>
-                        )}
-                      </div>
-                    ) : null}
-                  </li>
-                )
-              })}
+              {userEntries.map(card)}
             </ul>
+          ) : null}
+          {systemEntries.length > 0 ? (
+            <section className={css.systemSection} aria-labelledby={`${catalogId}-system-heading`}>
+              <button
+                className={css.systemHeading}
+                type="button"
+                id={`${catalogId}-system-heading`}
+                aria-expanded={systemOpen}
+                onClick={() => { setSystemOpen(current => !current) }}
+              >
+                <span>{t('systemPlugins')}</span>
+                <span className={css.systemCount}>{systemEntries.length}</span>
+                <IconChevronDownOutline14 className={css.chevron} size={12} aria-hidden="true" />
+              </button>
+              {systemOpen ? (
+                <ul className={css.cards}>
+                  {systemEntries.map(card)}
+                </ul>
+              ) : null}
+            </section>
           ) : null}
         </div>
       ) : null}

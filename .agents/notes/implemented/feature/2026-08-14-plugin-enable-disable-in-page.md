@@ -34,6 +34,9 @@ patch's `applyEntryPatches` target lookup.
 
 The Web plugin-list tab (`ui-settings-plugin-inventory`) adds an enable/disable
 button to each expanded card, wired to the Remote, re-listing after the toggle.
+The list is grouped: toggleable plugins carry the button in the main list, while
+the required system plugins sit in a separate collapsible "system plugins"
+section with no controls.
 
 **Guard:** every entry carries a `protected` flag. The rule is default-protect —
 disabling a plugin that another plugin injects breaks the dependent, and
