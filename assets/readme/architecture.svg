@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">How DeepSeek Harness works</title>
+  <desc id="arch-desc">The desktop shell spawns the dsh harness as a system-Node child, which is composed entirely of plugins (tool, skill, session, storage, loop).</desc>
+  <defs>
+    <linearGradient id="abg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1224"/>
+      <stop offset="1" stop-color="#070a12"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6799fe"/>
+      <stop offset="1" stop-color="#a678ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="440" fill="url(#abg)"/>
+  <text x="72" y="62" font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif" font-size="30" font-weight="700" fill="#fff">How it works</text>
+
+  <!-- Step 1: Desktop shell -->
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+    <rect x="72" y="96" width="360" height="74" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(166,120,255,.5)"/>
+    <text x="92" y="128" font-size="21" font-weight="700" fill="#fff">Desktop app (Electron shell)</text>
+    <text x="92" y="154" font-size="18" fill="hsla(0,0%,100%,.6)">Native window · zero-dependency installer</text>
+  </g>
+  <!-- arrow 1 -->
+  <path d="M252 170v36" stroke="rgba(103,153,254,.7)" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: harness child -->
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+    <rect x="72" y="212" width="360" height="74" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(103,153,254,.55)"/>
+    <text x="92" y="244" font-size="21" font-weight="700" fill="#fff">dsh harness</text>
+    <text x="92" y="270" font-size="18" fill="hsla(0,0%,100%,.6)">system-Node child · loopback HTTP</text>
+  </g>
+  <!-- arrow 2 -->
+  <path d="M252 286v36" stroke="rgba(103,153,254,.7)" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Step 3: plugins -->
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+    <rect x="72" y="328" width="360" height="74" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(103,153,254,.55)"/>
+    <text x="92" y="360" font-size="21" font-weight="700" fill="#fff">Everything is a plugin</text>
+    <text x="92" y="386" font-size="18" fill="hsla(0,0%,100%,.6)">Composed from Cordis plugins</text>
+  </g>
+
+  <!-- Right panel: plugin seam chips -->
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+    <text x="520" y="104" font-size="19" font-weight="600" fill="hsla(0,0%,100%,.7)">Pluggable capabilities</text>
+    <g font-size="18" font-weight="600" fill="#fff">
+      <rect x="520" y="124" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="595" y="153" text-anchor="middle">Tool</text>
+      <rect x="686" y="124" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="761" y="153" text-anchor="middle">Skill</text>
+      <rect x="852" y="124" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="927" y="153" text-anchor="middle">Session</text>
+      <rect x="520" y="186" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="595" y="215" text-anchor="middle">Storage</text>
+      <rect x="686" y="186" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="761" y="215" text-anchor="middle">Loop</text>
+      <rect x="852" y="186" width="150" height="46" rx="12" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.16)"/><text x="927" y="215" text-anchor="middle">Sandbox</text>
+    </g>
+    <text x="520" y="300" font-size="18" fill="hsla(0,0%,100%,.62)">Model, memory, web, terminal, and more are all plugins —</text>
+    <text x="520" y="326" font-size="18" fill="hsla(0,0%,100%,.62)">freely replaceable and recomposable per profile.</text>
+  </g>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#6799fe"/>
+    </marker>
+  </defs>
+</svg>
