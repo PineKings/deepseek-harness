@@ -2,6 +2,14 @@
 
 English | [中文](README.zh.md)
 
+> **Community fork notice**: This repository is a community derivative of
+> [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness),
+> maintained by PineSound. On top of the **unchanged core harness** it adds a
+> **desktop app** ([deepseek-harness-desktop](https://github.com/PineKings/deepseek-harness-desktop)),
+> a plugin marketplace, image recognition, and a release channel. This is **not
+> the official DeepSeek repository**. See [MODIFICATIONS.md](MODIFICATIONS.md)
+> for the full list of changes; licensed under [MIT](LICENSE).
+
 DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
 
 It uses an architecture where **everything is a plugin**, and is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).

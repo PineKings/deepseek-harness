@@ -1,6 +1,17 @@
 MIT License
 
-Copyright (c) 2026 DeepSeek
+本项目(DeepSeek Harness 社区版,含桌面端 deepseek-harness-desktop)是基于开源项目
+deepseek-harness(https://github.com/deepseek-ai/deepseek-harness)的衍生作品,
+以 MIT 协议开源,并保留原项目版权声明。改动说明见 MODIFICATIONS.md。
+
+This project (DeepSeek Harness Community Edition, including the desktop app
+deepseek-harness-desktop) is a derivative work of the open-source project
+deepseek-harness (https://github.com/deepseek-ai/deepseek-harness), released
+under the MIT License with the original copyright preserved. See
+MODIFICATIONS.md for the list of changes.
+
+Copyright (c) 2026 PineSound
+Original project deepseek-harness Copyright (c) 2026 DeepSeek
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

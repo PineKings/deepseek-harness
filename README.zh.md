@@ -2,6 +2,12 @@
 
 [English](README.md) | 中文
 
+> **社区衍生版说明**:本仓库是 [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)
+> 的社区衍生版,由 PineSound 维护。在**核心 harness 完全不变**的基础上,新增了
+> **桌面应用**([deepseek-harness-desktop](https://github.com/PineKings/deepseek-harness-desktop))、
+> 插件市场、图像识别与发布渠道。本仓库**并非 DeepSeek 官方仓库**。完整改动见
+> [MODIFICATIONS.zh.md](MODIFICATIONS.zh.md),以 [MIT](LICENSE) 协议开源。
+
 DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
 
 它采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
