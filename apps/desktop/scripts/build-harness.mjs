@@ -63,6 +63,13 @@ try {
 // Node/pnpm install is needed on the target. POSIX ships an executable `dsh`
 // shell script; Windows ships a `dsh.cmd` shim (the desktop registers the
 // harness directory on the user PATH on first launch).
+//
+// The POSIX launcher resolves its own real path through symlinks before looking
+// up `bin/node` and `apps/cli/lib/bin.js`: the desktop registers `dsh` on PATH
+// as a symlink into a bin dir, so a bare `dirname "$0"` would resolve to the
+// link's directory (no siblings there). `readlink -f` is unavailable on macOS,
+// so resolve portably with the readlink loop below. `dsh.cmd` needs no such
+// handling because `%~dp0` already expands to the real script location.
 if (process.platform === 'win32') {
   writeFileSync(
     join(out, 'dsh.cmd'),
@@ -72,7 +79,7 @@ if (process.platform === 'win32') {
   const dshLauncher = join(out, 'dsh')
   writeFileSync(
     dshLauncher,
-    '#!/bin/sh\nexec "$(dirname "$0")/bin/node" "$(dirname "$0")/apps/cli/lib/bin.js" "$@"\n',
+    '#!/bin/sh\nSELF="$0"\nwhile [ -h "$SELF" ]; do\n  DIR=$(cd "$(dirname "$SELF")" && pwd)\n  LINK=$(readlink "$SELF")\n  case "$LINK" in /*) SELF="$LINK";; *) SELF="$DIR/$LINK";; esac\ndone\nDIR=$(cd "$(dirname "$SELF")" && pwd)\nexec "$DIR/bin/node" "$DIR/apps/cli/lib/bin.js" "$@"\n',
   )
   chmodSync(dshLauncher, 0o755)
 }
