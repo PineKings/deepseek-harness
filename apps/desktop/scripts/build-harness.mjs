@@ -10,10 +10,17 @@
  * native, apps/cli, apps/web — plus the platform Node binary, into
  * `build/harness`, which electron-builder ships as `extraResources`.
  *
+ * The packaged harness must stay fully self-contained: the app is not a mere
+ * launcher, it must let users in the most barren environments use dsh entirely
+ * through the app. We therefore copy the whole workspace node_modules and then
+ * prune a curated, VERIFIED-safe exclusion list (see pruneNodeModules below and
+ * `scripts/harness-excludes.json`). Nothing is excluded unless it is provably
+ * outside the dsh runtime dependency closure.
+ *
  * Run from the repository root before `desktop:pack`.
  */
 
-import { cpSync, chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -36,6 +43,12 @@ for (const d of harnessDirs) {
 for (const [src, dst] of extraDirs) {
   cpSync(join(root, src), join(out, dst), { recursive: true })
 }
+
+// Prune verified-safe build/packaging tooling out of the copied node_modules.
+// This is the ONLY sanctioned way to shrink the self-contained runtime: every
+// exclusion is validated against the dependency closure of the kept packages
+// and refused if any kept package depends on it.
+pruneNodeModules(join(out, 'node_modules'))
 
 // Bundle the platform Node binary for the harness child. Windows needs a
 // `.exe` extension so both the child spawn and the `dsh.cmd` shim can execute
@@ -82,6 +95,154 @@ if (process.platform === 'win32') {
     '#!/bin/sh\nSELF="$0"\nwhile [ -h "$SELF" ]; do\n  DIR=$(cd "$(dirname "$SELF")" && pwd)\n  LINK=$(readlink "$SELF")\n  case "$LINK" in /*) SELF="$LINK";; *) SELF="$DIR/$LINK";; esac\ndone\nDIR=$(cd "$(dirname "$SELF")" && pwd)\nexec "$DIR/bin/node" "$DIR/apps/cli/lib/bin.js" "$@"\n',
   )
   chmodSync(dshLauncher, 0o755)
+}
+
+/**
+ * Remove the curated build/packaging-time packages from a copied pnpm
+ * `node_modules`. Safe by construction:
+ *
+ *   1. Reads `scripts/harness-excludes.json` — a visible, configurable list of
+ *      package names + reasons (users add/remove entries without touching the
+ *      copy logic).
+ *   2. For each exclusion, walks every KEPT `.pnpm/<pkg>@<ver>` entry and checks
+ *      whether any kept package symlinks this name as a dependency. If so, the
+ *      exclusion is REFUSED (throws) — the runtime must stay whole.
+ *   3. If safe, deletes the `.pnpm/<name>@*` entries, the top-level
+ *      `node_modules/<name>` link, and any `.bin` shims that pointed into them,
+ *      reporting bytes freed per entry and a total.
+ */
+function pruneNodeModules(nmDir) {
+  const cfgPath = join(root, 'apps/desktop/scripts/harness-excludes.json')
+  if (!existsSync(cfgPath)) return
+  const { excludes } = JSON.parse(readFileSync(cfgPath, 'utf8'))
+  if (!Array.isArray(excludes) || excludes.length === 0) return
+
+  // De-dupe by name so a duplicate config entry can't double-report or double-count.
+  const unique = new Map()
+  for (const e of excludes) if (e && e.name && !unique.has(e.name)) unique.set(e.name, e)
+  const list = [...unique.values()]
+
+  const pnpmDir = join(nmDir, '.pnpm')
+  if (!existsSync(pnpmDir)) return
+  const entries = readdirSync(pnpmDir)
+
+  // All packages that will be removed — used to ignore cross-excluded refs
+  // during the safety check (a dependency among two removed packages is fine).
+  const excludedSet = new Set(list.map((e) => e.name))
+
+  // Package name of a .pnpm entry. Entries look like "name@1.0.0" for a bare
+  // package or "@scope+name@1.0.0" for a scoped one, but peer-dependency
+  // suffixes add further "@"s (e.g. "dmg-builder@25.1.8_peer@25.1.8"). Parse
+  // from the FIRST "@" — the base name never contains one after the version
+  // separator — so peer suffixes can't leak into the parsed name.
+  const entryPkg = (entry) => {
+    const at = entry.indexOf('@')
+    if (at === -1) return entry
+    if (at === 0) {
+      const rest = entry.slice(1) // "@scope+name@ver..." -> "scope+name@ver..."
+      const sep = rest.indexOf('@')
+      const name = sep === -1 ? rest : rest.slice(0, sep)
+      return '@' + name.replace('+', '/')
+    }
+    return entry.slice(0, at)
+  }
+
+  let totalFreed = 0
+
+  for (const ex of list) {
+    const name = ex.name
+    if (excludedSet.size === 0) continue
+
+    // --- 2. Safety: does any KEPT package depend on this package? ---
+    const dependents = []
+    for (const entry of entries) {
+      const ep = entryPkg(entry)
+      if (ep === name || excludedSet.has(ep)) continue // itself or also excluded
+      const depDir = join(pnpmDir, entry, 'node_modules')
+      if (!existsSync(depDir)) continue
+      if (readdirSync(depDir).includes(name)) dependents.push(ep)
+    }
+    if (dependents.length > 0) {
+      throw new Error(
+        `[harness-excludes] REFUSING to exclude "${name}": kept packages depend on it ` +
+          `(${dependents.join(', ')}). The runtime must stay whole — remove it from ` +
+          `${cfgPath} or it is not actually safe to exclude.`,
+      )
+    }
+
+    // --- 3. Delete the .pnpm store entries for this package ---
+    const matching = entries.filter((e) => entryPkg(e) === name)
+    for (const m of matching) {
+      const p = join(pnpmDir, m)
+      const sz = dirSize(p)
+      rmSync(p, { recursive: true, force: true })
+      totalFreed += sz
+      console.log(`  [exclude] ${name} — removed .pnpm/${m} (${fmtSize(sz)})`)
+    }
+
+    // --- 4. Delete the top-level link/dir (node_modules/@scope/name too) ---
+    const top = join(nmDir, ...name.split('/'))
+    if (existsSync(top)) {
+      const sz = dirSize(top)
+      rmSync(top, { recursive: true, force: true })
+      totalFreed += sz
+      console.log(`  [exclude] ${name} — removed top-level link (${fmtSize(sz)})`)
+    }
+
+    // --- 5. Drop .bin shims that pointed into the removed store entries ---
+    removeBinShims(join(nmDir, '.bin'), matching, pnpmDir)
+  }
+
+  if (totalFreed > 0) {
+    console.log(
+      `\n[harness-excludes] freed ${fmtSize(totalFreed)} by excluding ` +
+        `${list.map((e) => e.name).join(', ')} (config: ${cfgPath})`,
+    )
+  }
+}
+
+/** Recursive size of a dir or link target. Symlinks are counted as 0 bytes and
+ *  never followed (a pnpm store is full of links; following would loop). */
+function dirSize(p) {
+  let st
+  try {
+    st = lstatSync(p)
+  } catch {
+    return 0
+  }
+  if (st.isSymbolicLink() || st.isFile()) return st.size
+  if (!st.isDirectory()) return 0
+  let total = 0
+  for (const child of readdirSync(p)) total += dirSize(join(p, child))
+  return total
+}
+
+/** Remove `.bin` shims whose resolved target lives inside any removed store
+ *  entry, so no dangling executables remain. */
+function removeBinShims(binDir, removedEntries, pnpmDir) {
+  if (!existsSync(binDir)) return
+  const removedStoreDirs = removedEntries.map((e) => join(pnpmDir, e))
+  for (const shim of readdirSync(binDir)) {
+    const p = join(binDir, shim)
+    let target
+    try {
+      target = readlinkSync(p)
+    } catch {
+      continue // not a symlink (e.g. a real .cmd file) — leave it
+    }
+    const resolved = resolve(binDir, target)
+    if (removedStoreDirs.some((d) => resolved.startsWith(d))) {
+      rmSync(p, { recursive: true, force: true })
+    }
+  }
+}
+
+/** Human-readable byte size, e.g. "553 MiB". */
+function fmtSize(bytes) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MiB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${bytes} B`
 }
 
 console.log(`assembled self-contained harness at ${out}`)

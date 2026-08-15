@@ -1,0 +1,63 @@
+{
+  "$schema": "harness-excludes.schema.json",
+  "version": 1,
+  "description": "Packages excluded from the packaged harness node_modules (.pnpm store). The app must stay fully self-contained — it is not a launcher, it lets users in the most barren environments use dsh entirely through the app. So an entry here is a HARD guarantee that the package is NOT part of the dsh runtime dependency closure: the build refuses to exclude anything a kept workspace package actually depends on (see build-harness.mjs pruneNodeModules). Add entries only after verifying the package is build-time / packaging-time tooling that the harness never imports at runtime.",
+  "excludes": [
+    {
+      "name": "electron",
+      "reason": "Electron shell runtime. electron-builder ships it separately into resources/app; the dsh harness runs under the bundled system-Node child and never imports Electron. Verified: only apps/desktop/package.json depends on it, only apps/desktop/lib/types/{main,preload}.js import it (those are the shell, already packaged)."
+    },
+    {
+      "name": "electron-builder",
+      "reason": "Packaging toolchain (group). The harness is pre-built and distributed, so nothing packages installers at runtime. The electron-builder toolchain is mutually interdependent, so it is excluded as a group; build-harness.mjs refuses any exclusion a kept package still depends on, which is how this group stays coherent."
+    },
+    {
+      "name": "app-builder-lib",
+      "reason": "electron-builder toolchain (group): app-builder-lib is packaging logic only, never imported by the dsh runtime."
+    },
+    {
+      "name": "builder-util",
+      "reason": "electron-builder toolchain (group): build utilities (spawns app-builder-bin, 7zip-bin). Build-time only."
+    },
+    {
+      "name": "builder-util-runtime",
+      "reason": "electron-builder toolchain (group): runtime helpers used only by the builder at package time, not by dsh."
+    },
+    {
+      "name": "dmg-builder",
+      "reason": "electron-builder toolchain (group): mac .dmg packaging; not present on this Windows build and never used at runtime."
+    },
+    {
+      "name": "electron-builder-squirrel-windows",
+      "reason": "electron-builder toolchain (group): Squirrel.Windows packaging; build-time only."
+    },
+    {
+      "name": "app-builder-bin",
+      "reason": "electron-builder's build binary (7za/signtool/app-builder). Build-time only, never imported by the dsh runtime. Depended on by builder-util, which is itself excluded in this group."
+    },
+    {
+      "name": "electron-publish",
+      "reason": "electron-builder toolchain (group): publishing (upload to GitHub etc.); never used by the dsh runtime."
+    },
+    {
+      "name": "7zip-bin",
+      "reason": "electron-builder toolchain (group): 7-zip binary used to compress installers at package time; not a dsh runtime dependency."
+    },
+    {
+      "name": "@electron/asar",
+      "reason": "electron-builder toolchain (group): asar archive packing; build-time only (the desktop app ships asar:false anyway)."
+    },
+    {
+      "name": "@electron/notarize",
+      "reason": "electron-builder toolchain (group): macOS notarization; build-time only, and irrelevant on this Windows build."
+    },
+    {
+      "name": "@electron/osx-sign",
+      "reason": "electron-builder toolchain (group): macOS code signing; build-time only."
+    },
+    {
+      "name": "@electron/universal",
+      "reason": "electron-builder toolchain (group): macOS universal binaries; build-time only."
+    }
+  ]
+}

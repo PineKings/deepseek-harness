@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://deepseek-harness.dev/schemas/harness-excludes.schema.json",
+  "title": "Harness dependency exclusion list",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "description", "excludes"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "description": { "type": "string" },
+    "excludes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reason"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Package name to exclude, e.g. \"electron\" or \"@scope/name\". Matches pnpm store entries by unscoped/scoped base name.",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this package is safely outside the dsh runtime dependency closure. Required so the exclusion stays auditable."
+          }
+        }
+      }
+    }
+  }
+}
