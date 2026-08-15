@@ -41,6 +41,7 @@ export {
   readProfileManifest,
   reconcileProfileBundles,
   resolveBundleDir,
+  resolvePnpm,
   resolveProfileDir,
   writeProfileManifest,
   type DshBundleManifest,

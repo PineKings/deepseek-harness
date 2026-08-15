@@ -13,7 +13,7 @@
  * Run from the repository root before `desktop:pack`.
  */
 
-import { cpSync, chmodSync, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -37,11 +37,14 @@ for (const [src, dst] of extraDirs) {
   cpSync(join(root, src), join(out, dst), { recursive: true })
 }
 
-// Bundle the platform Node binary for the harness child.
+// Bundle the platform Node binary for the harness child. Windows needs a
+// `.exe` extension so both the child spawn and the `dsh.cmd` shim can execute
+// it; POSIX uses a bare `node`.
 const nodeBin = execFileSync('node', ['-e', 'process.stdout.write(process.execPath)']).toString()
 if (!existsSync(nodeBin)) throw new Error(`node executable not found: ${nodeBin}`)
-cpSync(nodeBin, join(out, 'bin/node'))
-chmodSync(join(out, 'bin/node'), 0o755)
+const nodeFile = process.platform === 'win32' ? 'node.exe' : 'node'
+cpSync(nodeBin, join(out, 'bin', nodeFile))
+chmodSync(join(out, 'bin', nodeFile), 0o755)
 
 // Vendor pnpm so the packaged app can install third-party plugins without pnpm
 // on the target machine. npm ships with Node, so use it on the build machine
@@ -52,6 +55,26 @@ try {
   console.log('vendored pnpm into harness')
 } catch {
   console.warn('could not vendor pnpm; registry plugin install will be unavailable in the packaged app')
+}
+
+// A `dsh` launcher so a user can run the bundled CLI from a terminal outside
+// the app (`dsh plugin --profile web add <spec>`, …). It execs the bundled node
+// against the CLI entry, so the vendored pnpm is picked up automatically and no
+// Node/pnpm install is needed on the target. POSIX ships an executable `dsh`
+// shell script; Windows ships a `dsh.cmd` shim (the desktop registers the
+// harness directory on the user PATH on first launch).
+if (process.platform === 'win32') {
+  writeFileSync(
+    join(out, 'dsh.cmd'),
+    '@echo off\r\n"%~dp0bin\\node.exe" "%~dp0apps\\cli\\lib\\bin.js" %*\r\n',
+  )
+} else {
+  const dshLauncher = join(out, 'dsh')
+  writeFileSync(
+    dshLauncher,
+    '#!/bin/sh\nexec "$(dirname "$0")/bin/node" "$(dirname "$0")/apps/cli/lib/bin.js" "$@"\n',
+  )
+  chmodSync(dshLauncher, 0o755)
 }
 
 console.log(`assembled self-contained harness at ${out}`)

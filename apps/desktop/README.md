@@ -46,6 +46,45 @@ box.
 - **Self-contained harness** — the packaged app ships the full harness runtime
   under `Contents/Resources/harness` (see below), so it runs on any target
   machine with no external Node or repository install.
+- **External `dsh` CLI** — the bundled harness ships a `dsh` launcher, so you
+  can install plugins of any source form from a terminal outside the app
+  (see below). It resolves to the bundled Node, CLI entry, and vendored pnpm,
+  so no Node or pnpm install is needed on the machine.
+
+## Installing plugins from a terminal
+
+The in-app Settings → Plugins install box covers npm names, tarballs, and
+GitHub URLs. For anything the box can't express — a local directory, a tarball
+you haven't placed somewhere — or for full control, run the bundled `dsh` CLI
+directly. Any `pnpm add` specifier works, because `dsh plugin add` is a pnpm
+forwarder that automatically uses the app's vendored pnpm.
+
+The app **registers the `dsh` command on your PATH automatically on first
+launch** (macOS: a symlink into `/usr/local/bin`; Windows: a `dsh.cmd` shim plus
+a user-PATH entry), so in a new terminal you can just run:
+
+```sh
+dsh plugin --profile web add ./plugin            # local dir
+# … or dsh-better-sidebar, github:user/repo, ./plugin.tgz,
+#     https://github.com/user/repo/archive/refs/heads/main.tar.gz
+```
+
+Notes:
+
+- The CLI and the in-app install share the same `~/.dsh/profiles/web`, so an
+  install from either surface is picked up by the other. But a CLI install while
+  the app is running does **not** hot-reload the running tree — restart the app
+  (or re-open the plugin page) to see it.
+- Build-script consent is the terminal's own: pnpm prints the packages it will
+  run and, if you allow them, writes them under `allowBuilds` in the profile's
+  `pnpm-workspace.yaml` — the same per-package, user-consented posture the
+  in-app modal follows.
+- Registration is non-destructive: an existing `dsh` that is not ours is left
+  untouched, and a PATH that cannot be written (e.g. an unwritable
+  `/usr/local/bin`) only logs a warning. Open a new shell to pick up a fresh
+  PATH.
+- In a development checkout (no packaged harness launcher) registration is
+  skipped; use `pnpm dsh` or a PATH `dsh`/`pnpm` instead.
 
 ## Run from a checkout
 

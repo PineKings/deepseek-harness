@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { app, dialog, BrowserWindow, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 
 import { LOOPBACK_HOST, parseReadyPort } from './ready-port.ts'
+import { registerDshLauncher } from './register-dsh.ts'
 import type { UpdateCheckResult } from './preload.ts'
 
 const require = createRequire(import.meta.url)
@@ -201,7 +202,8 @@ async function checkForUpdate(): Promise<UpdateCheckResult> {
 /** Spawn's node executable: a bundled one when the app is packaged, else PATH. */
 function nodeExecutable(): string {
   const harness = harnessRoot()
-  if (harness !== undefined) return join(harness, 'bin/node')
+  // Windows ships the bundled node as `node.exe`; POSIX as a bare `node`.
+  if (harness !== undefined) return join(harness, 'bin', process.platform === 'win32' ? 'node.exe' : 'node')
   if (process.env.DSH_NODE) return resolve(process.env.DSH_NODE)
   return 'node'
 }
@@ -298,6 +300,32 @@ function startSession(): void {
 
 app.whenReady().then(() => {
   installAppMenu()
+  // Expose the bundled `dsh` CLI on the user's terminal (macOS: symlink into
+  // /usr/local/bin or a user-writable fallback on PATH; Windows: a `dsh.cmd` +
+  // user PATH registration). Best-effort and non-destructive: an existing `dsh`
+  // that is not ours is left untouched. A new registration or a failure is
+  // surfaced to the user so it is never silently absent.
+  if (app.isPackaged && (process.platform === 'darwin' || process.platform === 'win32')) {
+    const harness = harnessRoot()
+    if (harness !== undefined) {
+      const registration = registerDshLauncher(harness)
+      if (registration.status === 'error') {
+        void dialog.showMessageBox({
+          type: 'warning',
+          message: 'dsh 命令注册失败',
+          detail: registration.detail,
+          buttons: ['知道了'],
+        })
+      } else if (registration.status === 'registered' && registration.created) {
+        void dialog.showMessageBox({
+          type: 'info',
+          message: '已将 dsh 命令注册到 PATH',
+          detail: `命令已链接到 ${registration.path}。请打开一个新的终端窗口，即可直接使用 dsh 命令，例如：dsh plugin --profile web add <插件>`,
+          buttons: ['知道了'],
+        })
+      }
+    }
+  }
   // The SPA's About "check for updates" button asks the main process.
   ipcMain.handle(UPDATE_CHANNEL, () => checkForUpdate())
   // The SPA's About reads this build's version from the main process (no network).
