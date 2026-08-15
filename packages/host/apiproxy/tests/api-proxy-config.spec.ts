@@ -454,6 +454,30 @@ describe('settings domain', () => {
       .toBe('settings-not-exposed')
   })
 
+  it('exposes a third-party namespace the deployment lists in exposeSettings', async () => {
+    const ctx = await harness({ configurableProviders: false })
+    const describeImage = settingsNamespace('describe-image')
+    ctx.settings.register(describeImage, z.object({ baseURL: z.string().default('') }))
+    // Not a provider, not opted-in via configurable, and not in a built-in
+    // allowlist — yet the deployment's exposeSettings opts it into the surface.
+    const api = createApiProxy(ctx, { ...DEFAULTS, exposeSettings: ['describe-image'] })
+    const described = expectOk(await api.settings.describe(request({})))
+    expect(described.namespaces.map(view => view.ns)).toEqual(['describe-image'])
+    expect(expectOk(await api.settings.update(request({
+      ns: 'describe-image', patch: { baseURL: 'https://vision.example' },
+    }))).value).toMatchObject({ baseURL: 'https://vision.example' })
+  })
+
+  it('honors configurable opt-in even without a provider entry or allowlist', async () => {
+    const ctx = await harness({ configurableProviders: false })
+    ctx.settings.register(settingsNamespace('describe-image'), z.object({ baseURL: z.string().default('') }), {
+      configurable: true,
+    })
+    const api = createApiProxy(ctx, DEFAULTS)
+    expect(expectOk(await api.settings.describe(request({}))).namespaces.map(view => view.ns))
+      .toEqual(['describe-image'])
+  })
+
   it('forwards a provider settings change for model-catalog consumers', async () => {
     // Editing `models` changes no route, so llm/adapters-updated never fires
     // and an open model picker would keep serving the stale catalog. Storing

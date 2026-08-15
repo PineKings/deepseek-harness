@@ -140,6 +140,21 @@ describe('registration', () => {
       .toThrow(/already registered/)
   })
 
+  it('exposes only namespaces opted in via configurable on registration', async () => {
+    const { ctx } = await boot()
+    const theme = settingsNamespace('ui-theme')
+    const shell = settingsNamespace('shell')
+    // Default: not remotely configurable.
+    ctx.settings.register(theme, ThemeSchema)
+    // Explicit opt-in: remotely configurable.
+    ctx.settings.register(shell, ThemeSchema, { configurable: true })
+
+    expect(ctx.settings.configurableNamespaces()).toEqual(['shell'])
+    const byNs = new Map(ctx.settings.describe().map(descriptor => [String(descriptor.ns), descriptor]))
+    expect(byNs.get('ui-theme')?.configurable).toBe(false)
+    expect(byNs.get('shell')?.configurable).toBe(true)
+  })
+
   it('fails registration when the stored section is invalid for the schema', async () => {
     const { ctx } = await boot({ doc: { 'ui-theme': { fontSize: 'big' } } })
     expect(() => ctx.settings.register(settingsNamespace('ui-theme'), ThemeSchema)).toThrow()

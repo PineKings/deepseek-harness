@@ -668,6 +668,14 @@ export interface ApiProxyDefaults {
    * falls back to platform detection ({@link canOpenNativePath}).
    */
   canOpenPath?: () => boolean
+  /**
+   * Additional settings namespaces the deployment exposes to the web
+   * configuration client, beyond the harness allowlists and the namespaces
+   * plugins opted into via `configurable: true`. Lets an operator edit a
+   * shipped third-party plugin's settings card (e.g. describe-image) without
+   * that plugin's code opting in.
+   */
+  exposeSettings?: readonly string[]
 }
 
 /** The tool/call payload fields the presenter path reads. */
@@ -1109,6 +1117,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     ?? DEFAULT_SESSION_LOG_COMPRESSION_LEVEL
   const coldBlankProbeMaxBytes = defaults.coldBlankProbeMaxBytes
     ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES
+  const exposeSettings = new Set(defaults.exposeSettings ?? [])
   /** The seed model each create/resume declares; re-read so it never goes stale. */
   const agentOptions = (): AgentOptions => {
     const { provider, model } = defaults.defaultModelSelection()
@@ -1955,6 +1964,14 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
     const exposed = modelProviderNamespaces()
     for (const ns of WEB_SETTINGS_NAMESPACES) exposed.add(ns)
     for (const ns of PRODUCT_SETTINGS_NAMESPACES) exposed.add(ns)
+    // A plugin that ships a settings card opts its namespace in via
+    // `settings.register(..., { configurable: true })`; that declaration is the
+    // general path so third-party namespaces need no per-plugin allowlist entry.
+    const settings = ctx.get('settings')
+    if (settings !== undefined) {
+      for (const ns of settings.configurableNamespaces()) exposed.add(ns)
+    }
+    for (const ns of exposeSettings) exposed.add(ns)
     return exposed
   }
 

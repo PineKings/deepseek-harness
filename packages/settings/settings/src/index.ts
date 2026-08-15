@@ -40,6 +40,12 @@ export interface SettingsRegisterOptions<T> {
   /** Owner's effect timing, surfaced to configuration UIs; defaults to `live`. */
   applies?: SettingsApplies
   /**
+   * Whether the web configuration client may read and write this namespace.
+   * Defaults to `false` so a registration never becomes remotely editable by
+   * accident; a plugin that ships a settings card opts in here.
+   */
+  configurable?: boolean
+  /**
    * Reject a resolved section the owner could not act on, for constraints its
    * schema cannot express — a cross-field requirement, or one field's validity
    * depending on another's. Throwing here refuses the *write* that produced the
@@ -85,6 +91,8 @@ export interface SettingsDescriptor {
   user?: unknown
   /** Owner's declared effect timing. */
   applies: SettingsApplies
+  /** Whether the web configuration client may read and write this namespace. */
+  configurable: boolean
   /** Schema-declared secret positions; present only under `redactSecrets`. */
   secrets?: RedactedSecret[]
 }
@@ -326,6 +334,8 @@ interface SettingsRegistration {
   schema: z<unknown>
   base: unknown
   applies: SettingsApplies
+  /** Whether the web configuration client may read and write this namespace. */
+  configurable: boolean
   /** Owner-supplied check for constraints the schema cannot express. */
   validate?: (value: unknown) => void
   resolved: unknown
@@ -441,6 +451,7 @@ export abstract class SettingsProvider extends Service {
       schema: schema as z<unknown>,
       base: options?.base,
       applies: options?.applies ?? 'live',
+      configurable: options?.configurable ?? false,
       ...options?.validate === undefined
         ? {}
         : { validate: options.validate as (value: unknown) => void },
@@ -497,6 +508,7 @@ export abstract class SettingsProvider extends Service {
         ...base === undefined ? {} : { base },
         ...detachedUser === undefined ? {} : { user: detachedUser },
         applies: registration.applies,
+        configurable: registration.configurable,
       }
       if (options?.redactSecrets !== true) return descriptor
       const schema = registration.schema as z<never>
@@ -509,6 +521,19 @@ export abstract class SettingsProvider extends Service {
         secrets: redacted.secrets,
       }
     })
+  }
+
+  /**
+   * The namespaces a plugin opted into web configuration via `configurable:
+   * true` on registration. The web config boundary serves these alongside the
+   * explicit harness allowlists, so a plugin that ships a settings card is
+   * editable without hardcoding its namespace into the proxy.
+   * @returns the configurable namespace ids, in registration order.
+   */
+  configurableNamespaces(): string[] {
+    return [...this.registrations.values()]
+      .filter(registration => registration.configurable)
+      .map(registration => String(registration.ns))
   }
 
   /**

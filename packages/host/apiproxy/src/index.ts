@@ -59,6 +59,14 @@ export interface Config {
    * @default 1024
    */
   coldBlankProbeMaxBytes?: number
+  /**
+   * Additional settings namespaces the web configuration client may read and
+   * write, beyond the harness allowlists and namespaces plugins opted into via
+   * `configurable: true` on registration. An operator lists a shipped
+   * third-party plugin's namespace here to make its settings card editable
+   * without that plugin's code opting in.
+   */
+  exposeSettings?: string[]
 }
 
 /**
@@ -77,6 +85,7 @@ export class ApiProxyService extends Service implements ApiProxy {
     sessionExportCompressionLevel: z.number().step(1).min(0).max(9)
       .default(DEFAULT_SESSION_LOG_COMPRESSION_LEVEL) as z<SessionLogCompressionLevel>,
     coldBlankProbeMaxBytes: z.natural().default(DEFAULT_COLD_BLANK_PROBE_MAX_BYTES),
+    exposeSettings: z.array(z.string()),
   })
 
   readonly sessions: ApiProxy['sessions']
@@ -106,6 +115,9 @@ export class ApiProxyService extends Service implements ApiProxy {
       ...(config.coldBlankProbeMaxBytes === undefined
         ? {}
         : { coldBlankProbeMaxBytes: config.coldBlankProbeMaxBytes }),
+      ...(config.exposeSettings === undefined
+        ? {}
+        : { exposeSettings: config.exposeSettings }),
     })
     this.sessions = api.sessions
     this.subagents = api.subagents
