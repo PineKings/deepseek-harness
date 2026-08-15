@@ -1,5 +1,35 @@
 # @deepseek-ai/dsh-desktop
 
+> **DeepSeek Harness Desktop(deepseek-harness-desktop)** — 由 PineSound 基于开源项目
+> [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 构建的**社区版**桌面应用。
+> 为官方 CLI/Web 形态的 harness 提供原生桌面外壳:双击即用、零外部依赖,发布 macOS 与 Windows 安装包。
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+- **基于**: [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)(MIT)
+- **源码**: https://github.com/PineKings/deepseek-harness-desktop
+- **发布站**: https://deepseek.pinesound.cn/
+
+## 开源协议(License)
+
+本项目基于 MIT 授权的 deepseek-harness 构建,同样以 **MIT 协议**开源(见 [LICENSE](./LICENSE)),并保留原项目版权声明。
+
+## 修改说明(Modification Note)
+
+本项目是 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的**衍生作品**,在**完全保留原项目后端与核心 harness 行为**的基础上,面向最终用户增加了以下能力:
+
+- **桌面外壳**:基于 Electron 的原生桌面窗口,双击即用、无需浏览器标签页;安装包内置完整运行时与 Node,目标机器零外部依赖;发布 macOS(`.dmg`)与 Windows(`.nsis`)安装包。
+- **插件系统**:图形化的插件安装 / 开关、黑白名单守卫、内置 pnpm 与多镜像回退、免重启实时生效。
+- **图像识别**:通过 OpenAI 兼容接口(DashScope)补齐视觉能力,密钥 / 地址 / 模型与对话主模型完全独立。
+- **更新机制**:读取线上 `releases.json` 自动检测更新,桌面与发布站同渠道。
+- **发布站**:配套的**非官方社区发布站**(deepseek.pinesound.cn),复刻并重构官方页面为中文单语言纯静态站点,**非 DeepSeek 官方站点**,与 DeepSeek 无隶属或赞助关系,商标归原权利方所有。
+
+> 说明:本项目的后端与核心 harness 行为**完全保留原项目**;桌面外壳只是薄包装,原生 ABI 兼容,无需为 Electron 重编译。
+
+---
+
+## 技术说明(Technical Reference)
+
 Electron desktop shell for DeepSeek Harness. The Electron main process is a thin
 wrapper: it spawns the real `dsh` CLI running the `web` profile on loopback (an
 OS-assigned port), parses the readiness URL line the profile prints

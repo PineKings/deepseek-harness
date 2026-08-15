@@ -4,6 +4,7 @@
   "version": "0.1.0-rc.5",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "author": "PineSound",
   "main": "lib/types/main.js",
   "files": [
