@@ -19,6 +19,7 @@ import {
   PROFILE_TEMPLATES,
   readProfileManifest,
   reconcileProfileBundles,
+  resolvePnpm,
   resolveProfileDir,
 } from '@deepseek-ai/dsh-app-boot'
 import { INSTALL_ANCHOR } from './profile-boot.ts'
@@ -59,17 +60,22 @@ export function runPlugin(profile: string, args: readonly string[]): number {
     process.stderr.write(`${NAME}: initialized profile ${profile} at ${dir}\n`)
   }
   const before = readProfileManifest(NAME, dir)
-  // Windows resolves pnpm through its .cmd shim, which spawn() refuses
-  // without a shell since the CVE-2024-27980 hardening.
-  const result = spawnSync('pnpm', args.map(argument => anchorPathSpec(argument, process.cwd())), {
-    cwd: dir,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+  // Prefer the pnpm vendored into the packaged harness (deterministic, matching
+  // the desktop's in-app install and needing no pnpm on the machine); fall back
+  // to pnpm on PATH in a development checkout. Windows resolves pnpm through
+  // its .cmd shim, which spawn() refuses without a shell since the
+  // CVE-2024-27980 hardening; the vendored path runs node against pnpm.cjs.
+  const anchored = args.map(argument => anchorPathSpec(argument, process.cwd()))
+  const vendored = resolvePnpm(process.execPath)
+  const result = vendored === undefined
+    ? spawnSync('pnpm', anchored, { cwd: dir, stdio: 'inherit', shell: process.platform === 'win32' })
+    : spawnSync(process.execPath, [vendored, ...anchored], { cwd: dir, stdio: 'inherit', shell: process.platform === 'win32' })
   if (result.error !== undefined) {
     const code = (result.error as NodeJS.ErrnoException).code
     if (code === 'ENOENT') {
-      process.stderr.write(`${NAME}: pnpm not found on PATH — install pnpm to manage profile plugins\n`)
+      process.stderr.write(
+        `${NAME}: pnpm not found on PATH and no bundled pnpm is available — install pnpm to manage profile plugins\n`,
+      )
       return 127
     }
     throw result.error

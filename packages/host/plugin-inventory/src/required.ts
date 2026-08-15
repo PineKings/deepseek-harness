@@ -81,6 +81,7 @@ const REQUIRED_PLUGINS = new Set([
   '@deepseek-ai/dsh-host-directory-picker-auto',
   '@deepseek-ai/dsh-host-directory-picker-native',
   '@deepseek-ai/dsh-host-plugin-inventory',
+  '@deepseek-ai/dsh-host-skill-manager',
   '@deepseek-ai/dsh-host-webserver',
   '@deepseek-ai/dsh-image-recognition',
   '@deepseek-ai/dsh-image-recognition-http',

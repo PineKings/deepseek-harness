@@ -94,10 +94,20 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Local skill management: list, install, uninstall, and toggle skills.
+    - id: skill-manager
+      name: '@deepseek-ai/dsh-host-skill-manager'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
       name: '@deepseek-ai/dsh-host-apiproxy'
+      config:
+        # Expose the third-party image-understanding plugin's settings card to
+        # the web configuration client. The plugin registers its namespace
+        # without `configurable: true`, so the deployment opts it in here.
+        exposeSettings:
+          - describe-image
 
     - id: cordis-host-runner
       name: '@deepseek-ai/dsh-cordis-host-runner'
@@ -194,6 +204,9 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    - id: ui-settings-skill-manager
+      name: '@deepseek-ai/dsh-client-ui-settings-skill-manager'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'

@@ -302,6 +302,51 @@
   flex: none;
 }
 
+.installed {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--dsh-border);
+}
+
+.installed h3 {
+  margin: 0 0 0.5rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.installedList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.installedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--dsw-alias-bg-layer-3);
+}
+
+.installedName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.installedAction {
+  flex: none;
+}
+
 .installRestart {
   margin: 0 0 0.5rem;
   color: var(--dsw-alias-label-secondary);
@@ -312,6 +357,82 @@
   margin: 0 0 0.5rem;
   color: var(--dsw-alias-danger-text);
   font-size: 12px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-scrim, rgba(0, 0, 0, 0.5)) 45%, transparent);
+}
+
+.consent {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--dsw-alias-bg-layer-3);
+  box-shadow: var(--dsw-shadow-lv2, 0 12px 32px rgba(0, 0, 0, 0.2));
+}
+
+.consent h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.consentBody {
+  margin: 0 0 12px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.consentList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-module-platform);
+  list-style: none;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.consentList label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.consentList code {
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.consentActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.consentAction {
+  flex: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {

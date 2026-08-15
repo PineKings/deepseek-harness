@@ -26,7 +26,7 @@ import { createRequire } from 'node:module'
 import {
   existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -309,6 +309,26 @@ function normalizeShippedProfile(name: string, dir: string, manifest: ProfileMan
   }
   writeProfileManifest(dir, normalized)
   return normalized
+}
+
+/**
+ * Locate the pnpm CLI bundled into the harness. Honors a `DSH_PNPM` override,
+ * then looks for the vendored pnpm beside the bundled Node's harness root.
+ * Both the desktop's in-app plugin install and the external `dsh plugin` CLI
+ * use this, so an external install runs the same vendored pnpm as the app and
+ * needs no pnpm installed on the machine. In a development checkout (no
+ * vendored pnpm) it returns undefined and the caller falls back to PATH pnpm.
+ * @param nodeBin - the Node executable path (`process.execPath`).
+ * @param env - the process environment.
+ * @returns the pnpm.cjs path, or undefined when none is vendored.
+ */
+export function resolvePnpm(nodeBin: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (env.DSH_PNPM) return env.DSH_PNPM
+  // nodeBin is harness/bin/node in the packaged app, so the harness root is
+  // one level up from bin/; pnpm is vendored under harness/pnpm/.
+  const harnessRoot = resolve(dirname(nodeBin), '..')
+  const candidate = join(harnessRoot, 'pnpm', 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
+  return existsSync(candidate) ? candidate : undefined
 }
 
 /**

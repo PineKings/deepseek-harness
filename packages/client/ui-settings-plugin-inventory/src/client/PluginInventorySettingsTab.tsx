@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import type { InstallResult, InstallSpec, PluginInventorySnapshot } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  InstallResult, InstallSpec, InstalledBundlesSnapshot, PluginInventorySnapshot,
+} from '@deepseek-ai/dsh-api-remotes/client'
 import {
   Button,
   IconChevronDownOutline14,
@@ -17,6 +19,10 @@ export interface PluginInventorySettingsTabInjected {
   setEnabled: (entryId: PluginInventoryEntry['entryId'], enabled: boolean) => Promise<void>
   /** Install a registry plugin by package name; the host persists the change. */
   installPlugin: (spec: InstallSpec) => Promise<InstallResult>
+  /** List the profile's user-installed plugin dependencies (uninstallable ones). */
+  installedBundles: () => Promise<InstalledBundlesSnapshot>
+  /** Uninstall a user-installed plugin; the host persists the change. */
+  uninstall: (name: string) => Promise<InstallResult>
 }
 
 type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
@@ -67,7 +73,7 @@ function matches(entry: PluginInventoryEntry, normalizedQuery: string): boolean 
 
 /** Render the current Loader inventory with per-plugin enable/disable and install. */
 export function PluginInventorySettingsTab({
-  list, setEnabled, installPlugin, t,
+  list, setEnabled, installPlugin, installedBundles, uninstall, t,
 }: PluginInventorySettingsTabProps): ReactNode {
   const catalogId = useId()
   const [request, setRequest] = useState(0)
@@ -78,6 +84,10 @@ export function PluginInventorySettingsTab({
   const [spec, setSpec] = useState('')
   const [installBusy, setInstallBusy] = useState(false)
   const [installNote, setInstallNote] = useState<{ kind: 'restart' | 'error'; text: string } | null>(null)
+  const [pendingConsent, setPendingConsent] = useState<{ spec: string; builds: readonly string[] } | null>(null)
+  const [consentChecked, setConsentChecked] = useState<readonly string[]>([])
+  const [installed, setInstalled] = useState<InstalledBundlesSnapshot['installed']>([])
+  const [uninstallBusy, setUninstallBusy] = useState<string | null>(null)
 
   useEffect(() => {
     let current = true
@@ -85,8 +95,14 @@ export function PluginInventorySettingsTab({
       (snapshot) => { if (current) setState({ status: 'ready', snapshot }) },
       () => { if (current) setState({ status: 'error' }) },
     )
+    // The installed-dependency list is secondary; a failure to load it only
+    // hides the uninstall section, never the inventory.
+    void Promise.resolve().then(() => installedBundles()).then(
+      (snapshot) => { if (current) setInstalled(snapshot.installed) },
+      () => {},
+    )
     return () => { current = false }
-  }, [list, request])
+  }, [list, installedBundles, request])
 
   /** Toggle one entry then re-read the inventory. */
   const toggle = (entryId: PluginInventoryEntry['entryId'], enabled: boolean): void => {
@@ -98,7 +114,19 @@ export function PluginInventorySettingsTab({
     ).finally(() => { setBusy(null) })
   }
 
-  /** Install a plugin by package name via the registry, then re-read. */
+  /** Record a successful install: show the restart/active note, clear, re-list. */
+  const installSettled = (result: InstallResult): void => {
+    // A live recompose activates the plugin immediately; only fall back to a
+    // restart notice when no reload handle exists.
+    setInstallNote({ kind: 'restart', text: t(result.restartRequired ? 'restartRequired' : 'installed') })
+    setSpec('')
+    setRequest(value => value + 1)
+  }
+
+  /**
+   * Install a plugin by spec, then re-read. A result carrying `pendingBuilds`
+   * pauses for the user's per-package build consent instead of settling.
+   */
   const installRegistry = (): void => {
     const trimmed = spec.trim()
     if (trimmed.length === 0 || installBusy) return
@@ -106,17 +134,70 @@ export function PluginInventorySettingsTab({
     setInstallNote(null)
     void installPlugin({ type: 'registry', spec: trimmed }).then(
       (result) => {
-        // A live recompose activates the plugin immediately; only fall back to a
-        // restart notice when no reload handle exists.
-        setInstallNote({ kind: 'restart', text: t(result.restartRequired ? 'restartRequired' : 'installed') })
-        setSpec('')
-        setRequest(value => value + 1)
+        if (result.pendingBuilds !== undefined && result.pendingBuilds.length > 0) {
+          // Keep the spec in the field; the modal re-submits it on consent.
+          setPendingConsent({ spec: trimmed, builds: result.pendingBuilds })
+          setConsentChecked(result.pendingBuilds)
+          return
+        }
+        installSettled(result)
       },
       (error: unknown) => {
         const detail = error instanceof Error ? error.message : String(error)
         setInstallNote({ kind: 'error', text: `${t('installFailed')}: ${detail}` })
       },
     ).finally(() => { setInstallBusy(false) })
+  }
+
+  /** Re-submit the paused install with the exact packages the user approved. */
+  const confirmConsent = (): void => {
+    if (pendingConsent === null || installBusy || consentChecked.length === 0) return
+    const { spec: consentedSpec } = pendingConsent
+    const approved = [...consentChecked]
+    setInstallBusy(true)
+    setInstallNote(null)
+    void installPlugin({ type: 'registry', spec: consentedSpec, consentBuilds: approved }).then(
+      (result) => {
+        setPendingConsent(null)
+        setConsentChecked([])
+        if (result.pendingBuilds !== undefined && result.pendingBuilds.length > 0) {
+          setPendingConsent({ spec: consentedSpec, builds: result.pendingBuilds })
+          setConsentChecked(result.pendingBuilds)
+          return
+        }
+        installSettled(result)
+      },
+      (error: unknown) => {
+        setPendingConsent(null)
+        setConsentChecked([])
+        const detail = error instanceof Error ? error.message : String(error)
+        setInstallNote({ kind: 'error', text: `${t('installFailed')}: ${detail}` })
+      },
+    ).finally(() => { setInstallBusy(false) })
+  }
+
+  /** Dismiss the consent prompt without installing. */
+  const cancelConsent = (): void => {
+    if (installBusy) return
+    setPendingConsent(null)
+    setConsentChecked([])
+  }
+
+  /** Uninstall a user-installed plugin dependency, then re-read. */
+  const removeInstalled = (name: string): void => {
+    if (uninstallBusy !== null) return
+    setUninstallBusy(name)
+    setInstallNote(null)
+    void uninstall(name).then(
+      (result) => {
+        setInstallNote({ kind: 'restart', text: t(result.restartRequired ? 'restartRequired' : 'uninstalled') })
+        setRequest(value => value + 1)
+      },
+      (error: unknown) => {
+        const detail = error instanceof Error ? error.message : String(error)
+        setInstallNote({ kind: 'error', text: `${t('uninstallFailed')}: ${detail}` })
+      },
+    ).finally(() => { setUninstallBusy(null) })
   }
 
   const normalizedQuery = query.trim().toLocaleLowerCase()
@@ -264,6 +345,28 @@ export function PluginInventorySettingsTab({
               ? <p className={installNote.kind === 'error' ? css.installError : css.installRestart} role="status">{installNote.text}</p>
               : null}
           </section>
+          {installed.length > 0 ? (
+            <section className={css.installed} aria-label={t('installedPlugins')}>
+              <h3>{t('installedPlugins')}</h3>
+              <ul className={css.installedList}>
+                {installed.map(({ name }) => (
+                  <li className={css.installedRow} key={name}>
+                    <code className={css.installedName}>{name}</code>
+                    <Button
+                      className={css.installedAction}
+                      variant="outline"
+                      size="sm"
+                      disabled={uninstallBusy !== null}
+                      aria-busy={uninstallBusy === name || undefined}
+                      onClick={() => { removeInstalled(name) }}
+                    >
+                      {uninstallBusy === name ? t('uninstalling') : t('uninstall')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <div className={css.catalog}>
             <label className={css.search}>
               <IconSearchOutline16 aria-hidden="true" />
@@ -291,6 +394,54 @@ export function PluginInventorySettingsTab({
             ) : null}
           </div>
         </>
+      ) : null}
+      {pendingConsent !== null ? (
+        <div
+          className={css.overlay}
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) cancelConsent() }}
+        >
+          <div className={css.consent} role="dialog" aria-modal="true" aria-labelledby={`${catalogId}-consent-title`}>
+            <h3 id={`${catalogId}-consent-title`}>{t('consentTitle')}</h3>
+            <p className={css.consentBody}>{t('consentBody')}</p>
+            <ul className={css.consentList}>
+              {pendingConsent.builds.map(name => (
+                <li key={name}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={consentChecked.includes(name)}
+                      onChange={(event) => {
+                        setConsentChecked(current => event.currentTarget.checked
+                          ? [...current, name]
+                          : current.filter(existing => existing !== name))
+                      }}
+                    />
+                    <code>{name}</code>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className={css.consentActions}>
+              <Button
+                className={css.consentAction}
+                variant="outline"
+                disabled={installBusy}
+                onClick={cancelConsent}
+              >
+                {t('consentCancel')}
+              </Button>
+              <Button
+                className={css.consentAction}
+                variant="primary"
+                disabled={installBusy || consentChecked.length === 0}
+                onClick={confirmConsent}
+              >
+                {installBusy ? t('installing') : t('consentAllow')}
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   )

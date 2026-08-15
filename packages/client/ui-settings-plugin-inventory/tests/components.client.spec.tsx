@@ -16,12 +16,16 @@ const t = ((key: PluginInventoryLocaleKey): string => en[key]) as PluginInventor
 function props(
   list: PluginInventorySettingsTabInjected['list'],
   installPlugin: PluginInventorySettingsTabInjected['installPlugin'] = async () => ({ ok: true as const, restartRequired: true }),
+  installedBundles: PluginInventorySettingsTabInjected['installedBundles'] = async () => ({ installed: [] }),
+  uninstall: PluginInventorySettingsTabInjected['uninstall'] = async () => ({ ok: true as const, restartRequired: true }),
 ): PluginInventorySettingsTabProps {
   return {
     t,
     list,
     setEnabled: vi.fn(async () => {}),
     installPlugin,
+    installedBundles,
+    uninstall,
   } as PluginInventorySettingsTabProps
 }
 
@@ -179,5 +183,66 @@ describe('PluginInventorySettingsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: en.install }))
     expect(await screen.findByText(en.installed)).toBeTruthy()
     expect(screen.queryByText(en.restartRequired)).toBeNull()
+  })
+
+  it('pauses for build consent and retries with the approved set', async () => {
+    const installPlugin = vi.fn<PluginInventorySettingsTabInjected['installPlugin']>()
+      .mockResolvedValueOnce({ ok: true, restartRequired: false, pendingBuilds: ['node-pty', 'protobufjs'] })
+      .mockResolvedValueOnce({ ok: true, restartRequired: true })
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, installPlugin)} />)
+
+    const input = await screen.findByRole('textbox', { name: en.installSpec })
+    fireEvent.change(input, { target: { value: '@scope/native-plugin' } })
+    fireEvent.click(screen.getByRole('button', { name: en.install }))
+    // The consent dialog lists the blocked packages and the sandbox warning.
+    expect(await screen.findByRole('dialog', { name: en.consentTitle })).toBeTruthy()
+    expect(screen.getByText(en.consentBody)).toBeTruthy()
+    expect(screen.getByText('node-pty')).toBeTruthy()
+    expect(screen.getByText('protobufjs')).toBeTruthy()
+    // Both are checked by default; approving retries with exactly that set.
+    fireEvent.click(screen.getByRole('button', { name: en.consentAllow }))
+    expect(installPlugin).toHaveBeenLastCalledWith({
+      type: 'registry',
+      spec: '@scope/native-plugin',
+      consentBuilds: ['node-pty', 'protobufjs'],
+    })
+    expect(await screen.findByText(en.restartRequired)).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('cancelling consent leaves the spec in the field for a retry', async () => {
+    const installPlugin = vi.fn<PluginInventorySettingsTabInjected['installPlugin']>(
+      async () => ({ ok: true, restartRequired: false, pendingBuilds: ['node-pty'] }),
+    )
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, installPlugin)} />)
+
+    const input = await screen.findByRole('textbox', { name: en.installSpec })
+    fireEvent.change(input, { target: { value: '@scope/native-plugin' } })
+    fireEvent.click(screen.getByRole('button', { name: en.install }))
+    expect(await screen.findByRole('dialog', { name: en.consentTitle })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.consentCancel }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole<HTMLInputElement>('textbox', { name: en.installSpec }).value)
+      .toBe('@scope/native-plugin')
+  })
+
+  it('lists user-installed plugins and uninstalls one', async () => {
+    const installedBundles = vi.fn<PluginInventorySettingsTabInjected['installedBundles']>(
+      async () => ({ installed: [{ name: 'user-plugin' }] }),
+    )
+    const uninstall = vi.fn<PluginInventorySettingsTabInjected['uninstall']>(
+      async () => ({ ok: true, restartRequired: true }),
+    )
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT, undefined, installedBundles, uninstall)} />)
+
+    expect(await screen.findByText('user-plugin')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.uninstall }))
+    expect(uninstall).toHaveBeenCalledWith('user-plugin')
+    expect(await screen.findByText(en.restartRequired)).toBeTruthy()
+  })
+
+  it('omits the installed section when nothing is installed', async () => {
+    render(<PluginInventorySettingsTab {...props(async () => SNAPSHOT)} />)
+    expect(screen.queryByRole('heading', { name: en.installedPlugins })).toBeNull()
   })
 })

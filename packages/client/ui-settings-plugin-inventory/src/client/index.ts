@@ -1,17 +1,25 @@
-/** Read-only Host plugin inventory registered into Web Settings. */
+/** Host plugin inventory and marketplace registered into Web Settings. */
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
+import {
+  PluginInventorySettingsTab,
+  type PluginInventorySettingsTabInjected,
+} from './PluginInventorySettingsTab.tsx'
+import {
+  PluginMarketplaceSettingsTab,
+  type PluginMarketplaceSettingsTabInjected,
+} from './PluginMarketplaceSettingsTab.tsx'
 import { en, zh, type PluginInventoryLocaleKey } from './locales.ts'
 
 export type { PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps } from './PluginInventorySettingsTab.tsx'
+export type { PluginMarketplaceSettingsTabInjected, PluginMarketplaceSettingsTabProps } from './PluginMarketplaceSettingsTab.tsx'
 export type { PluginInventoryLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** Read-only Host plugin inventory copy. */
+    /** Host plugin inventory and marketplace copy. */
     'settings.pluginInventory': PluginInventoryLocaleKey
   }
 }
@@ -19,10 +27,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 export const NS = 'settings.pluginInventory'
 
-/** Services required by the Settings registration and generated Remote face. */
+/** Services required by the Settings registrations and generated Remote face. */
 export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory']
 
-/** Contribute the lazy inventory tab to the Plugins settings section. */
+/** Contribute the plugin-list and marketplace tabs to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugin-inventory: dictionaries')
 
@@ -47,8 +55,46 @@ export function apply(ctx: ClientContext): void {
     }
     return result.value
   }
-  const injected = (): PluginInventorySettingsTabInjected => ({
-    list, setEnabled, installPlugin,
+  const installedBundles: PluginInventorySettingsTabInjected['installedBundles'] = async () => {
+    const result = await ctx.remote.pluginInventory.installedBundles()
+    if (!result.ok) {
+      throw new Error(`pluginInventory.installedBundles failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const uninstall: PluginInventorySettingsTabInjected['uninstall'] = async (name) => {
+    const result = await ctx.remote.pluginInventory.uninstall(name)
+    if (!result.ok) {
+      throw new Error(`pluginInventory.uninstall failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const marketplaceList: PluginMarketplaceSettingsTabInjected['marketplaceList'] = async () => {
+    const result = await ctx.remote.pluginInventory.marketplaceList()
+    if (!result.ok) {
+      throw new Error(`pluginInventory.marketplaceList failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const marketplaceInstall: PluginMarketplaceSettingsTabInjected['marketplaceInstall'] = async (id, consentBuilds) => {
+    const result = await ctx.remote.pluginInventory.marketplaceInstall(id, consentBuilds)
+    if (!result.ok) {
+      throw new Error(`pluginInventory.marketplaceInstall failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const marketplaceUninstall: PluginMarketplaceSettingsTabInjected['marketplaceUninstall'] = async (id) => {
+    const result = await ctx.remote.pluginInventory.marketplaceUninstall(id)
+    if (!result.ok) {
+      throw new Error(`pluginInventory.marketplaceUninstall failed: ${result.error.code}: ${result.error.message}`)
+    }
+    return result.value
+  }
+  const inventoryInjected = (): PluginInventorySettingsTabInjected => ({
+    list, setEnabled, installPlugin, installedBundles, uninstall,
+  })
+  const marketplaceInjected = (): PluginMarketplaceSettingsTabInjected => ({
+    marketplaceList, marketplaceInstall, marketplaceUninstall,
   })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
@@ -57,6 +103,14 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     label: () => t('tab'),
     locale: NS,
-    inject: injected,
+    inject: inventoryInjected,
   }, PluginInventorySettingsTab))
+  ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
+    name: 'settings.plugins.tab',
+    id: 'marketplace',
+    order: 20,
+    label: () => t('marketplace'),
+    locale: NS,
+    inject: marketplaceInjected,
+  }, PluginMarketplaceSettingsTab))
 }
